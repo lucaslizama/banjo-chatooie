@@ -1,33 +1,35 @@
 // Optional developer shortcut: jump straight into a map on launch.
 //
 // Testing anything that needs a loaded level otherwise means sitting through the
-// Rareware intro and the file select every single run. The game already has this
-// exact mechanism for its own debug boot -- `func_8023DBDC` does
+// Rareware intro and the file select every single run.
 //
-//     setBootMap(getSpecialBootMap());
-//     func_8023DFF0(3);
+// This patches the game's own choice of boot map rather than trying to redirect
+// the boot afterwards. `core1_init` runs
 //
-// and that is precisely what this mirrors, with the map coming from a config
-// option instead. Off by default, so it costs normal play nothing.
+//     setBootMap(getDefaultBootMap());
+//     ...
+//     func_8023DA9C(3);
+//
+// all before `mainThread_entry` enters its `while (1) mainLoop()` loop, so by the
+// time any per-frame hook could act, the game is already in its boot map and
+// pulling it somewhere else means interrupting a transition that is underway.
+// Replacing `getDefaultBootMap` instead means the game boots where we want it to
+// the first time, through its own code path.
 //
 // No save file is loaded when booting this way, so the world comes up as an
-// empty file. That is fine for testing and is what the game's own debug path
-// does too.
+// empty file. That is fine for testing and matches what the game's own debug
+// boot (`getSpecialBootMap`) does.
 
 #include "bootmap.h"
 
 #include "modding.h"
 #include "recompconfig.h"
-#include "recomputils.h"
 #include "enums.h"
+#include "PR/ultratypes.h"
 
-extern void setBootMap(s32 map_id);
-extern void func_8023DFF0(s32 state);
-extern u32 D_8027A130;
-
-// Menu order of the "debug_boot_map" config option.
+// Menu order of the "debug_boot_map" config option. Index 0 is Off.
 static const s32 kBootMaps[] = {
-    0,                              // Off
+    0,
     MAP_1_SM_SPIRAL_MOUNTAIN,
     MAP_2_MM_MUMBOS_MOUNTAIN,
     MAP_7_TTC_TREASURE_TROVE_COVE,
@@ -38,36 +40,13 @@ static const s32 kBootMaps[] = {
 
 #define BOOT_MAP_COUNT ((int)(sizeof(kBootMaps) / sizeof(kBootMaps[0])))
 
-static int sDone = 0;
-static int sFrames = 0;
+RECOMP_PATCH s32 getDefaultBootMap(void) {
+    unsigned long choice = recomp_get_config_u32("debug_boot_map");
 
-void bootmap_tick(void) {
-    unsigned long choice;
-
-    if (sDone) {
-        return;
+    if (choice > 0 && choice < (unsigned long)BOOT_MAP_COUNT) {
+        return kBootMaps[choice];
     }
 
-    // Give the game a few frames to finish coming up before redirecting it.
-    sFrames++;
-    if (sFrames < 4) {
-        return;
-    }
-
-    sDone = 1;
-
-    choice = recomp_get_config_u32("debug_boot_map");
-    if (choice == 0 || choice >= (unsigned long)BOOT_MAP_COUNT) {
-        return;
-    }
-
-    // Only redirect out of the boot sequence. If a level is somehow already
-    // running, leave it alone rather than yanking the player out of it.
-    if (D_8027A130 == 3) {
-        return;
-    }
-
-    recomp_printf("[twitch-chat] debug boot to map 0x%02X\n", (int)kBootMaps[choice]);
-    setBootMap(kBootMaps[choice]);
-    func_8023DFF0(3);
+    // The stock value: the Rareware intro, which leads to the file select.
+    return MAP_1F_CS_START_RAREWARE;
 }
