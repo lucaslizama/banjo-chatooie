@@ -59,19 +59,33 @@ Start the message with a name and a colon. `!say mumbo: hello banjo` comes out o
 Mumbo, in Mumbo's voice. Anything without a recognised name falls back to the
 **Default Character** setting.
 
-The names chat can use, all case-insensitive:
+Every name chat can use, all case-insensitive:
 
-banjo, kazooie, tooty, grunty (or gruntilda), dingpot, bottles, mumbo,
-brentilda, cheato, klungo, boggy, wozza, gobi, rubee, tiptup, tanktup, trunker,
-clanker, snacker, chimpy, conga, blubber, nipper, snippet, flibbit, grabba,
-teehee, juju, yumyum, leaky, gloop, jinxy, croctus, motzhand, tumblar, mummum,
-zubba, gnawty, twinkly, nabnut, eyrie, loggo, lockup, vile, jinjo, yellowjinjo,
-greenjinjo, bluejinjo, pinkjinjo, orangejinjo.
+| Main cast | Villains | Spiral Mountain and the lair | Worlds |
+| --- | --- | --- | --- |
+| banjo | grunty | bottles | gobi |
+| kazooie | gruntilda | mumbo | rubee |
+| tooty | klungo | brentilda | jinxy |
+| dingpot | vile | cheato | croctus |
+| | snacker | loggo | boggy |
+| | lockup | eyrie | wozza |
+| | grabba | nabnut | tiptup |
+| | teehee | motzhand | tanktup |
+| | twinkly | tumblar | trunker |
+| | gnawty | mummum | clanker |
+| | flibbit | juju | snippet |
+| | zubba | yumyum | nipper |
+| | | leaky | blubber |
+| | | gloop | conga |
+| | | | chimpy |
 
-Five of those are confirmed to draw who they say they do: banjo, kazooie, tooty,
+The Jinjos: `jinjo` (yellow), `yellowjinjo`, `greenjinjo`, `bluejinjo`,
+`pinkjinjo`, `orangejinjo`.
+
+Five of these are confirmed to draw who they say they do: banjo, kazooie, tooty,
 grunty and dingpot. The rest come from the community's names for the game's
-portraits and a few of them are probably off by one, so you may get a neighbour
-instead of the character you asked for. If you would rather pick by number,
+portraits and a few are probably off by one, so you may get a neighbour instead
+of the character you asked for. If you would rather pick by number,
 `!say #87: hello` uses portrait 87 directly, and any number from 12 to 106 works.
 
 ## What chat cannot say
