@@ -35,6 +35,8 @@ static int sFrame = 0;
 static int sLastState = -1;
 static int sHideCommands = 1;
 static int sOverlayReady = 0;
+static int sOverlayEnabled = 1;
+static int sOverlayVisible = -1;   // -1 so the first apply always acts
 
 // Values of the "speak_trigger" config option. These must stay in the same order
 // as the `options` list in mod.toml -- the runtime returns the chosen index.
@@ -70,6 +72,23 @@ static void read_settings(OverlaySettings* out) {
     sSpeakTrigger = (int)recomp_get_config_u32("speak_trigger");
     sSpeakPermission = (int)recomp_get_config_u32("speak_permission");
     sSpeakShowName = recomp_get_config_u32("speak_show_name") != 0;
+    sOverlayEnabled = recomp_get_config_u32("overlay_enabled") != 0;
+}
+
+// Shows or hides the corner panel to match the config. Hiding it doesn't stop
+// the mod reading chat -- messages still arrive and can still be spoken by a
+// character, there is just nothing drawn in the corner.
+static void apply_overlay_visibility(void) {
+    if (sOverlayEnabled == sOverlayVisible) {
+        return;
+    }
+    sOverlayVisible = sOverlayEnabled;
+
+    if (sOverlayVisible) {
+        overlay_show();
+    } else {
+        overlay_hide();
+    }
 }
 
 // The default character is a name typed into a config field rather than an enum,
@@ -195,8 +214,9 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         read_settings(&settings);
         read_default_portrait();
         overlay_create(&settings);
-        overlay_show();
+        apply_overlay_visibility();
         sOverlayReady = 1;
+        sLastSettings = settings;
     }
 
     sFrame++;
@@ -205,6 +225,7 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         OverlaySettings settings;
         read_settings(&settings);
         read_default_portrait();
+        apply_overlay_visibility();
 
         // Only run the redemption reader when it's the chosen trigger -- it
         // means a helper process, so there is no point connecting otherwise.

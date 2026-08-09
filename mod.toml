@@ -59,6 +59,14 @@ type = "String"
 default = ""
 
 [[manifest.config_options]]
+id = "overlay_enabled"
+name = "Show Chat Overlay"
+description = "The chat panel in the corner of the screen. Turn it off to keep only the in-game text boxes."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "On"
+
+[[manifest.config_options]]
 id = "line_count"
 name = "Lines Shown"
 description = "How many chat messages to keep on screen."

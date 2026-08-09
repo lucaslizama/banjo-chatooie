@@ -50,6 +50,11 @@ Enable the mod, open its options, and type your channel name into **Twitch
 Channel** (no `#`). The overlay picks up the change within a couple of seconds —
 no restart needed. Blank the field to disconnect.
 
+**Show Chat Overlay** turns the corner panel off entirely, which is what you want
+if you'd rather chat only appeared through the game's own text boxes. Turning it
+off doesn't stop the mod reading chat — messages still arrive and characters
+still speak them, there's just nothing drawn in the corner.
+
 Other options: how many lines to show, which corner, text size, background
 opacity, and whether to hide `!command` messages aimed at chat bots.
 
