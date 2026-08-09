@@ -70,7 +70,35 @@ extern struct {
 extern s32 code94620_func_8031B5B0(void);
 extern s32 gcdialog_hasCurrentTextId(void);
 extern s32 getGameMode(void);
+extern s32 map_get(void);
 extern u32 D_8027A130;
+
+// Cutscenes drive the dialogue system themselves, and injecting a box into the
+// middle of one corrupts its state badly enough to crash the game. Rather than
+// try to detect "a cutscene is mid-sequence", refuse to speak on any map that
+// is a cutscene, the file select, or the Dingpot room.
+static int is_safe_map(s32 map) {
+    if (map < MAP_1_SM_SPIRAL_MOUNTAIN) {
+        return 0;
+    }
+    if (map >= MAP_1E_CS_START_NINTENDO && map <= MAP_20_CS_END_NOT_100) {
+        return 0;
+    }
+    if (map >= MAP_7B_CS_INTRO_GL_DINGPOT_1 && map <= MAP_8A_CS_INTRO_BANJOS_HOUSE_3) {
+        return 0;
+    }
+    if (map >= MAP_91_FILE_SELECT) {
+        return 0;
+    }
+    return 1;
+}
+
+// Frames the dialogue system must have been idle before we inject. A cutscene
+// pauses between its own lines, and starting ours in one of those gaps is the
+// same corruption as interrupting mid-line.
+#define SPEAK_IDLE_FRAMES 30
+
+static int sIdleFrames = 0;
 
 typedef struct {
     const char* name;
@@ -256,18 +284,21 @@ void speak_queue(const char* user, const char* text, int default_portrait, int s
 void speak_tick(void) {
     SpeakRequest* req;
 
-    if (sQueueCount == 0) {
-        return;
-    }
-
     // D_8027A130 == 3 is the in-game state that mainLoop runs the world update
     // in; anything else (boot, file select, cutscene transitions) has no
     // dialogue system to talk to.
-    if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL) {
+    if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL ||
+        gcdialog_hasCurrentTextId() || !is_safe_map(map_get())) {
+        sIdleFrames = 0;
         return;
     }
 
-    if (gcdialog_hasCurrentTextId()) {
+    if (sIdleFrames < SPEAK_IDLE_FRAMES) {
+        sIdleFrames++;
+        return;
+    }
+
+    if (sQueueCount == 0) {
         return;
     }
 
@@ -277,10 +308,13 @@ void speak_tick(void) {
     sHijack = 1;
     if (!gcdialog_showDialog(SPEAK_CARRIER_ASSET, 0, NULL, NULL, NULL, NULL)) {
         // The game refused (a cutscene flag, most likely). Leave the message
-        // queued and try again next frame.
+        // queued, and require a fresh idle stretch before trying again.
         sHijack = 0;
+        sIdleFrames = 0;
         return;
     }
+
+    sIdleFrames = 0;
 
     sQueueHead = (sQueueHead + 1) % SPEAK_QUEUE_SIZE;
     sQueueCount--;
