@@ -1,6 +1,13 @@
 # Twitch Chat Integration — Banjo-Kazooie: Recompiled
 
-Shows your Twitch chat on screen while you play.
+Shows your Twitch chat on screen while you play, and lets chat put words in the
+game characters' mouths.
+
+Two things happen with an incoming message:
+
+- it scrolls in an overlay panel in the corner of the screen, and
+- if it triggers the speak feature, a character says it in one of the game's own
+  dialogue boxes, with that character's portrait and voice samples.
 
 ## Two halves
 
@@ -46,6 +53,64 @@ no restart needed. Blank the field to disconnect.
 Other options: how many lines to show, which corner, text size, background
 opacity, and whether to hide `!command` messages aimed at chat bots.
 
+## Making characters speak
+
+**Characters Speak On** picks the trigger:
+
+| Mode | Requirement |
+| --- | --- |
+| `!say command` (default) | none — works on any channel |
+| `Highlight My Message` | Twitch Affiliate, since it's a channel points reward |
+| `Every message` | none — chaotic, useful for testing |
+| `Off` | — |
+
+Whoever is speaking is chosen by a `name:` prefix, so `!say mumbo: hello banjo`
+comes out of Mumbo. An unrecognised name (or none at all) falls back to the
+**Default Character** setting. Around fifty names are mapped — banjo, kazooie,
+bottles, mumbo, grunty, tooty, brentilda, cheato, klungo, boggy, wozza, gobi,
+rubee, tiptup, clanker, snacker, the five jinjo colours, and more.
+
+**Who Can Use !say** restricts the command to you and your moderators; `!say` is
+exempt from the "Hide Bot Commands" filter either way.
+
+Two things about the game's dialogue system are worth knowing. Its font has no
+lowercase glyphs — real assets store text like `DINGPOT, DINGPOT` — so spoken
+text is upper-cased on the way in, while the overlay keeps the original casing.
+And only portraits `0x0C` and up can be addressed, because the blob's portrait
+byte maps to `cmd + 0xC`; every major speaking character is above that line.
+
+## How the dialogue hijack works
+
+`gcdialog_showDialog(text_id, …)` leads to `loadDialogStrings`, which parses a
+byte blob returned by `dialogBin_get`:
+
+```
+[count][cmd][len][text NUL] x count      <- bottom box
+[count][cmd][len][text NUL] x count      <- top box
+```
+
+`cmd` selects the portrait (`gczoombox_new` receives `cmd + 0xC`), and the same
+id picks the character's voice samples, since `__gczoombox_load_sfx` reads both
+out of `D_8036C6C0[portrait_id]`. Choosing a character gets the face and the
+voice together. `len` counts the stored bytes including the terminator, and the
+portrait byte carries the high bit so it can't be mistaken for one of the
+commands in the `0x01`–`0x1F` range.
+
+The mod patches `dialogBin_get`, reimplements the original faithfully, and
+substitutes its own blob for exactly one call. That call is carried on a **real**
+asset id rather than an invented one: `dialogBin_release` frees whatever
+`s_dialogBin.ptr` points at, so an id the asset cache never loaded would
+unbalance it.
+
+Each box's entry list **must** end with a close command (`cmd` `-4`). Without it
+the state machine advances past the end of the array `loadAndCreateDialogs`
+allocated, reads whatever follows as the next portrait and string, and leaves
+that box open forever — which then blocks every later conversation in the game,
+since `gcdialog_hasCurrentTextId()` never goes false again.
+
+Long messages need no splitting: the zoombox wraps and scrolls by itself via
+`_gczoombox_findLineBreak` at 24 characters per line.
+
 ## About the connection
 
 Twitch allows anonymous read access to any public channel's chat, so the mod logs
@@ -89,7 +154,7 @@ Makefile            MIPS build
 mod.ld              MIPS linker script
 build.sh            builds both halves, packages, optionally deploys
 include/            recomp API headers + the shared MIPS/native contract
-src/                MIPS mod code (main.c, overlay.c)
+src/                MIPS mod code (main.c, overlay.c, speak.c)
 native/             host library (irc_client.cpp, twitch_chat.cpp, recomp_abi.h)
 ```
 
