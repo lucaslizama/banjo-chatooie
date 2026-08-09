@@ -1,0 +1,16 @@
+build/
+*.d
+*.o
+*.elf
+*.bin
+*.map
+*.nrm
+*.so
+*.dll
+*.dylib
+.vscode/settings.json
+
+# Prebuilt binary, fetched from the N64Recomp releases page.
+# See README.md -- build.sh prints the URL if it's missing.
+tools/RecompModTool
+tools/RecompModTool.exe

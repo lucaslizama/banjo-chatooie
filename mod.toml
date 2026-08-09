@@ -1,0 +1,122 @@
+# Config file for the Banjo-Kazooie: Recompiled Twitch chat overlay mod.
+
+[manifest]
+
+# Unique ID of this mod. Must never collide with another mod's ID.
+id = "lucas_twitch_chat_integration"
+
+version = "0.1.0"
+
+display_name = "Twitch Chat Integration"
+
+description = """
+Shows your Twitch chat on screen while you play.
+
+Set your channel name in this mod's options and chat appears in the corner of \
+the screen. The connection is anonymous and read-only -- the mod never asks for \
+a Twitch account, password or OAuth token, and it cannot send messages.
+
+Requires the twitch_chat native library to sit next to this mod's .nrm file in \
+the mods folder."""
+
+short_description = "Shows your Twitch chat on screen."
+
+authors = [ "Lucas" ]
+
+# ID of the target recomp game.
+game_id = "bk"
+
+minimum_recomp_version = "0.0.1"
+
+dependencies = [ ]
+
+optional_dependencies = [ ]
+
+# The native half of the mod. `name` is not just a label: the runtime appends the
+# platform's library extension to it and looks for the result in the folder
+# CONTAINING the .nrm -- so `twitch_chat.so` goes in the mods folder, alongside
+# twitch_chat_integration.nrm, not inside it.
+#
+# Every function the MIPS side imports with RECOMP_IMPORT(".", ...) has to be
+# listed here, or the mod fails to load with an invalid import error.
+native_libraries = [
+    { name = "twitch_chat", funcs = [
+        "twitch_chat_start",
+        "twitch_chat_stop",
+        "twitch_chat_get_state",
+        "twitch_chat_next_message",
+    ] }
+]
+
+[[manifest.config_options]]
+id = "channel"
+name = "Twitch Channel"
+description = "The channel whose chat to show, without the '#'. Leave blank to disconnect."
+type = "String"
+default = ""
+
+[[manifest.config_options]]
+id = "line_count"
+name = "Lines Shown"
+description = "How many chat messages to keep on screen."
+type = "Number"
+min = 1
+max = 10
+step = 1
+precision = 0
+percent = false
+default = 6
+
+[[manifest.config_options]]
+id = "corner"
+name = "Position"
+description = "Which corner of the screen the chat panel sits in."
+type = "Enum"
+options = [ "Top Left", "Top Right", "Bottom Left", "Bottom Right" ]
+default = "Bottom Left"
+
+[[manifest.config_options]]
+id = "text_size"
+name = "Text Size"
+description = "Chat text size, in screen units."
+type = "Number"
+min = 12
+max = 48
+step = 1
+precision = 0
+percent = false
+default = 22
+
+[[manifest.config_options]]
+id = "background_opacity"
+name = "Background Opacity"
+description = "How solid the panel behind the chat is."
+type = "Number"
+min = 0
+max = 100
+step = 5
+precision = 0
+percent = false
+default = 45
+
+[[manifest.config_options]]
+id = "hide_commands"
+name = "Hide Bot Commands"
+description = "Skip messages starting with '!', which are usually aimed at chat bots."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "On"
+
+# Inputs to the mod tool.
+[inputs]
+
+elf_path = "build/mod.elf"
+
+mod_filename = "twitch_chat_integration"
+
+# Reference symbol files.
+func_reference_syms_file = "BanjoRecompSyms/bk.us.rev0.syms.toml"
+data_reference_syms_files = [ "BanjoRecompSyms/bk.us.rev0.datasyms.toml" ]
+
+# Nothing to bundle -- the native library is deployed beside the .nrm, not inside it.
+additional_files = [ ]
