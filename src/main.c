@@ -16,6 +16,7 @@
 #include "twitch_str.h"
 #include "overlay.h"
 #include "speak.h"
+#include "bootmap.h"
 
 // How many messages to move into the overlay per frame. A busy channel can
 // deliver faster than this, but draining the whole queue in one frame would let
@@ -177,6 +178,8 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
     int drained;
     int color;
     int flags;
+
+    bootmap_tick();
 
     if (!sOverlayReady) {
         OverlaySettings settings;

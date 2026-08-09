@@ -131,6 +131,14 @@ options = [ "Off", "On" ]
 default = "On"
 
 [[manifest.config_options]]
+id = "debug_boot_map"
+name = "Debug: Boot To Map"
+description = "Skip the intro and file select and drop straight into a level on launch. No save file is loaded, so the world comes up empty. For testing -- leave Off to play normally."
+type = "Enum"
+options = [ "Off", "Spiral Mountain", "Mumbo's Mountain", "Treasure Trove Cove", "Clanker's Cavern", "Bubblegloop Swamp", "Lair: MM Lobby" ]
+default = "Off"
+
+[[manifest.config_options]]
 id = "hide_commands"
 name = "Hide Bot Commands"
 description = "Skip messages starting with '!', which are usually aimed at chat bots."
