@@ -298,7 +298,10 @@ static char ascii_fold(unsigned int codepoint) {
     }
 }
 
-static void build_blob(const char* text, int portrait) {
+// Returns how many characters made it into the box. Zero means the message was
+// entirely characters the font can't draw -- all-emoji, or Japanese -- and there
+// is nothing worth opening a box for.
+static int build_blob(const char* text, int portrait) {
     int i = 0;
     int length_index;
     int written = 0;
@@ -397,6 +400,8 @@ static void build_blob(const char* text, int portrait) {
     sBlob[i++] = 4;                                        // cmd -4 == close
     sBlob[i++] = 1;
     sBlob[i++] = 0;
+
+    return written;
 }
 
 void speak_queue(const char* user, const char* text, int default_portrait, int show_name) {
@@ -473,7 +478,14 @@ void speak_tick(void) {
     }
 
     req = &sQueue[sQueueHead];
-    build_blob(req->text, req->portrait);
+
+    if (build_blob(req->text, req->portrait) == 0) {
+        // Nothing the font can draw survived. Drop it rather than opening an
+        // empty box for a couple of seconds.
+        sQueueHead = (sQueueHead + 1) % SPEAK_QUEUE_SIZE;
+        sQueueCount--;
+        return;
+    }
 
     sHijack = 1;
     if (!gcdialog_showDialog(SPEAK_CARRIER_ASSET, 0, NULL, NULL, NULL, NULL)) {
