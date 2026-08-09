@@ -64,6 +64,11 @@
 // guarantee a space inside every window the scan can look at.
 #define SPEAK_MAX_WORD 18
 
+// Highest valid portrait index. D_8036C6C0 runs to D_8036D924, which is 4708
+// bytes, and gczoomboxPortraitInfo is 44 -- exactly 107 entries, 0x00 to 0x6A.
+// Anything past this indexes off the end of the table into whatever follows.
+#define SPEAK_MAX_PORTRAIT 0x6A
+
 // Messages queued while a cutscene or another conversation is up wait rather
 // than being thrown away, so this wants enough depth to cover a long cutscene
 // without losing the messages sent at the start of it. At ~204 bytes an entry
@@ -179,11 +184,14 @@ static const PortraitEntry kPortraits[] = {
 int speak_lookup_portrait(const char* name) {
     int i;
 
-    // "#97" addresses a portrait by raw index. The names in the decomp's
-    // GcZoomboxSprite enum are community guesses and some of them are wrong --
-    // the sprite the enum calls BANJO_3 is really Tooty, for instance -- so this
-    // is how a name is checked against what the game actually draws before being
-    // trusted in the table above. There are 106 portraits, 0x0C to 0x69.
+    // "#97" addresses a portrait by raw index, which is how a name gets checked
+    // against what the game actually draws instead of against a guessed label.
+    //
+    // The real table has 107 entries, not the 106 the decomp's enum lists. Its
+    // size is recoverable from the symbols: D_8036D924 - D_8036C6C0 = 4708
+    // bytes, over a 44-byte gczoomboxPortraitInfo, is exactly 107. So one
+    // portrait is missing from the enum and every name after the gap is one
+    // index too low -- which is why "kazooie" drew Banjo.
     if (name[0] == '#') {
         int value = 0;
         int digits = 0;
@@ -191,7 +199,7 @@ int speak_lookup_portrait(const char* name) {
             value = value * 10 + (name[i] - '0');
             digits++;
         }
-        if (digits > 0 && name[i] == '\0' && value >= 0x0C && value <= 0x69) {
+        if (digits > 0 && name[i] == '\0' && value >= 0x0C && value <= SPEAK_MAX_PORTRAIT) {
             return value;
         }
         return -1;
