@@ -49,6 +49,21 @@
 // in 255. Chat text is already capped well below that.
 #define SPEAK_MAX_TEXT 200
 
+// The longest run of non-space characters we will hand to the game.
+//
+// `_gczoombox_findLineBreak` wraps by scanning BACKWARDS from the end of the
+// string for a space that fits inside 24 printed characters -- and its loop has
+// no lower bound on the index. Given a word longer than the line, it walks off
+// the front of the string reading out of bounds until some earlier byte happens
+// to equal ' ', then returns a negative length that the caller writes through:
+//
+//     this->unk60[this->unk15C] = 0;   // negative index
+//
+// The game's own dialogue never contains a word that long, so this never fires
+// in normal play. Chat does it constantly, so we break long runs ourselves and
+// guarantee a space inside every window the scan can look at.
+#define SPEAK_MAX_WORD 18
+
 #define SPEAK_QUEUE_SIZE 6
 
 typedef struct {
@@ -61,7 +76,10 @@ static int sQueueHead = 0;
 static int sQueueCount = 0;
 
 // Blob handed to the game in place of the carrier asset's text.
-static unsigned char sBlob[4 + SPEAK_MAX_TEXT + 4];
+// Sized for the worst case exactly: the 4-byte bottom entry, the top box's
+// count/portrait/length header, a full-length string with its terminator, and
+// the 3-byte close entry.
+static unsigned char sBlob[4 + 3 + SPEAK_MAX_TEXT + 3];
 static int sHijack = 0;
 
 // From the base game. `s_dialogBin` is file-static in code_94620.c but the
@@ -181,13 +199,11 @@ RECOMP_PATCH char* dialogBin_get(s32 text_id) {
 // zero, because `loadAndCreateDialogs` reads element [0] unconditionally and a
 // zero count would leave it reading a zero-sized allocation.
 static void build_blob(const char* text, int portrait) {
-    int len = twitch_strlen(text);
     int i = 0;
+    int length_index;
+    int written = 0;
+    int run = 0;
     int j;
-
-    if (len > SPEAK_MAX_TEXT - 1) {
-        len = SPEAK_MAX_TEXT - 1;
-    }
 
     sBlob[i++] = 1;                                        // bottom: one entry
     sBlob[i++] = 4;                                        // cmd -4 == close
@@ -198,19 +214,41 @@ static void build_blob(const char* text, int portrait) {
     // Setting the high bit keeps the byte out of the 0x01-0x1F range, which
     // loadDialogStrings would otherwise read as a command instead of a portrait.
     sBlob[i++] = (unsigned char)(((portrait - 0x0C) & 0x7F) | 0x80);
-    sBlob[i++] = (unsigned char)(len + 1);
-    for (j = 0; j < len; j++) {
-        // The dialogue font has no lowercase glyphs -- real assets store their
-        // text in caps ("DINGPOT, DINGPOT..."), and anything lowercase renders
-        // as a blank. Upper-casing here keeps the overlay showing the message as
-        // the chatter actually typed it.
+    length_index = i++;              // filled in below, once the length is known
+
+    for (j = 0; text[j] != '\0' && written < SPEAK_MAX_TEXT - 1; j++) {
         char c = text[j];
-        if (c >= 'a' && c <= 'z') {
-            c = (char)(c - 'a' + 'A');
+
+        if (c == ' ') {
+            run = 0;
+        } else {
+            // Force a break into any over-long run, so the backwards wrap scan
+            // always finds a space within its window.
+            if (run >= SPEAK_MAX_WORD) {
+                sBlob[i++] = ' ';
+                written++;
+                run = 0;
+                if (written >= SPEAK_MAX_TEXT - 1) {
+                    break;
+                }
+            }
+            run++;
+
+            // The dialogue font has no lowercase glyphs -- real assets store
+            // their text in caps ("DINGPOT, DINGPOT..."), and anything lowercase
+            // renders as a blank. Upper-casing here keeps the overlay showing
+            // the message as the chatter actually typed it.
+            if (c >= 'a' && c <= 'z') {
+                c = (char)(c - 'a' + 'A');
+            }
         }
+
         sBlob[i++] = (unsigned char)c;
+        written++;
     }
+
     sBlob[i++] = 0;
+    sBlob[length_index] = (unsigned char)(written + 1);   // length includes the NUL
 
     // The terminator, and it is mandatory rather than tidy. The `default:` branch
     // of dialog_update reads `CMD(string_index + 1)->cmd` for every non-empty
