@@ -66,9 +66,29 @@ opacity, and whether to hide `!command` messages aimed at chat bots.
 
 Whoever is speaking is chosen by a `name:` prefix, so `!say mumbo: hello banjo`
 comes out of Mumbo. An unrecognised name (or none at all) falls back to the
-**Default Character** setting. Around fifty names are mapped — banjo, kazooie,
-bottles, mumbo, grunty, tooty, brentilda, cheato, klungo, boggy, wozza, gobi,
-rubee, tiptup, clanker, snacker, the five jinjo colours, and more.
+**Default Character** setting.
+
+#### Every name chat can use
+
+Names are case-insensitive. A ✔ marks one confirmed against what the game
+actually draws; the rest come from the decomp's labels and may be off by one —
+see the warning below.
+
+| | | | |
+| --- | --- | --- | --- |
+| `banjo` ✔ | `kazooie` ✔ | `tooty` ✔ | `grunty` / `gruntilda` ✔ |
+| `dingpot` ✔ | `bottles` | `mumbo` | `brentilda` |
+| `cheato` | `klungo` | `boggy` | `wozza` |
+| `gobi` | `rubee` | `tiptup` | `tanktup` |
+| `trunker` | `clanker` | `snacker` | `chimpy` |
+| `conga` | `blubber` | `nipper` | `snippet` |
+| `flibbit` | `grabba` | `teehee` | `juju` |
+| `yumyum` | `leaky` | `gloop` | `jinxy` |
+| `croctus` | `motzhand` | `tumblar` | `mummum` |
+| `zubba` | `gnawty` | `twinkly` | `nabnut` |
+| `eyrie` | `loggo` | `lockup` | `vile` |
+| `jinjo` | `yellowjinjo` | `greenjinjo` | `bluejinjo` |
+| `pinkjinjo` | `orangejinjo` | | |
 
 `!say #97: hello` addresses a portrait by raw index instead, which is how to
 check a name against what the game actually draws. That matters, because **the
