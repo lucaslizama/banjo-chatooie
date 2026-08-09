@@ -4,8 +4,17 @@
 // --------------
 // The game builds a dialogue from a byte blob returned by `dialogBin_get`:
 //
-//     [count][cmd][len][text...] x count      <- bottom box
-//     [count][cmd][len][text...] x count      <- top box
+//     [count][cmd][len][text NUL] x count     <- bottom box
+//     [count][cmd][len][text NUL] x count     <- top box
+//
+// `len` counts the stored bytes including the terminator. Confirmed against a
+// real asset, 0x0E57, whose first entry reads
+//
+//     07 B5 1F "DINGPOT, DINGPOT BY THE BENCH," 00
+//        └ portrait  └ 0x1F = 31 = 30 characters + the NUL
+//
+// and whose text is upper-case throughout, because the dialogue font has no
+// lowercase glyphs.
 //
 // `cmd` selects the portrait (`gczoombox_new` is called with `cmd + 0xC`), and
 // the portrait id also picks the character's voice samples -- `__gczoombox_load_sfx`
@@ -54,10 +63,6 @@ static int sQueueCount = 0;
 // Blob handed to the game in place of the carrier asset's text.
 static unsigned char sBlob[4 + SPEAK_MAX_TEXT + 4];
 static int sHijack = 0;
-
-// Set once we've logged a real asset's first bytes, so the format check below
-// only prints once per session.
-static int sDumpedRealAsset = 0;
 
 // From the base game. `s_dialogBin` is file-static in code_94620.c but the
 // recomp symbol files expose it, so the patched `dialogBin_get` can keep it
@@ -154,20 +159,6 @@ RECOMP_PATCH char* dialogBin_get(s32 text_id) {
     offset += ((unsigned char)header[1]) << 8;
     s_dialogBin.index = text_id;
     result = s_dialogBin.ptr + offset;
-
-    // One-shot format check: the blob we synthesize has to agree with what the
-    // real assets look like, in particular whether `len` counts the terminator.
-    if (!sDumpedRealAsset && !sHijack) {
-        int i;
-        sDumpedRealAsset = 1;
-        recomp_printf("[twitch-chat] dialog asset %04X bytes:", (int)text_id);
-        // Enough to cover a whole box's entry list, which is what shows how a
-        // real asset terminates one.
-        for (i = 0; i < 160; i++) {
-            recomp_printf(" %02X", (int)(unsigned char)result[i]);
-        }
-        recomp_printf("\n");
-    }
 
     if (sHijack && text_id == SPEAK_CARRIER_ASSET) {
         sHijack = 0;
