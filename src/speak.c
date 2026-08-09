@@ -83,7 +83,16 @@ static int sQueueCount = 0;
 // Sized for the worst case exactly: the 4-byte bottom entry, the top box's
 // count/portrait/length header, a full-length string with its terminator, and
 // the 3-byte close entry.
-static unsigned char sBlob[4 + 3 + SPEAK_MAX_TEXT + 3];
+//
+// Double buffered, and that matters: `loadDialogStrings` copies the cmd and len
+// bytes into its own allocation but keeps `str` as a pointer straight into this
+// buffer, which the box then reads from for as long as it is on screen. Building
+// the next message into the same bytes would rewrite live text underneath it.
+// Alternating means the outgoing message's string stays intact.
+#define SPEAK_BLOB_SIZE (4 + 3 + SPEAK_MAX_TEXT + 3)
+static unsigned char sBlobs[2][SPEAK_BLOB_SIZE];
+static int sBlobIndex = 0;
+#define sBlob (sBlobs[sBlobIndex])
 static int sHijack = 0;
 
 // From the base game. `s_dialogBin` is file-static in code_94620.c but the
@@ -135,10 +144,20 @@ typedef struct {
 // Only portraits 0x0C and up are reachable: the blob's cmd byte maps to
 // `cmd + 0xC`, so anything below that can't be addressed. Every major speaking
 // character is above the line.
+//
+// CAUTION: these indices are NOT simply the decomp's GcZoomboxSprite values.
+// Those names are community guesses and drift by one somewhere above 0x41 --
+// the entry labelled BANJO_3 draws Tooty, and KAZOOIE_3 draws Banjo. Entries
+// marked "verified" were checked against what the game actually renders; the
+// rest are still the enum's values and may be off by one. Check one with the
+// "#<index>" syntax before correcting it here.
 static const PortraitEntry kPortraits[] = {
-    { "banjo",      0x60 }, { "kazooie",    0x61 }, { "bottles",    0x0F },
-    { "mumbo",      0x10 }, { "grunty",     0x41 }, { "gruntilda",  0x41 },
-    { "tooty",      0x42 }, { "brentilda",  0x57 }, { "cheato",     0x5B },
+    /* verified */ { "banjo", 0x61 }, { "kazooie", 0x62 }, { "tooty", 0x60 },
+    /* verified, from the Dingpot's line in asset 0x0E57 */ { "dingpot", 0x64 },
+    /* verified, from Grunty's line in asset 0x0E57 */ { "grunty", 0x41 },
+    { "gruntilda",  0x41 },
+    { "bottles",    0x0F },
+    { "mumbo",      0x10 }, { "brentilda",  0x57 }, { "cheato",     0x5B },
     { "klungo",     0x5D }, { "boggy",      0x43 }, { "wozza",      0x44 },
     { "gobi",       0x1D }, { "rubee",      0x1C }, { "tiptup",     0x18 },
     { "tanktup",    0x19 }, { "trunker",    0x1B }, { "clanker",    0x15 },
@@ -150,7 +169,7 @@ static const PortraitEntry kPortraits[] = {
     { "motzhand",   0x45 }, { "tumblar",    0x46 }, { "mummum",     0x47 },
     { "zubba",      0x4F }, { "gnawty",     0x4D }, { "twinkly",    0x4B },
     { "nabnut",     0x50 }, { "eyrie",      0x55 }, { "loggo",      0x5A },
-    { "dingpot",    0x63 }, { "lockup",     0x66 }, { "vile",       0x67 },
+    { "lockup",     0x66 }, { "vile",       0x67 },
     { "jinjo",      0x20 }, { "yellowjinjo", 0x20 }, { "greenjinjo", 0x21 },
     { "bluejinjo",  0x22 }, { "pinkjinjo",  0x23 }, { "orangejinjo", 0x24 },
 };
@@ -159,6 +178,25 @@ static const PortraitEntry kPortraits[] = {
 
 int speak_lookup_portrait(const char* name) {
     int i;
+
+    // "#97" addresses a portrait by raw index. The names in the decomp's
+    // GcZoomboxSprite enum are community guesses and some of them are wrong --
+    // the sprite the enum calls BANJO_3 is really Tooty, for instance -- so this
+    // is how a name is checked against what the game actually draws before being
+    // trusted in the table above. There are 106 portraits, 0x0C to 0x69.
+    if (name[0] == '#') {
+        int value = 0;
+        int digits = 0;
+        for (i = 1; name[i] >= '0' && name[i] <= '9'; i++) {
+            value = value * 10 + (name[i] - '0');
+            digits++;
+        }
+        if (digits > 0 && name[i] == '\0' && value >= 0x0C && value <= 0x69) {
+            return value;
+        }
+        return -1;
+    }
+
     for (i = 0; i < PORTRAIT_COUNT; i++) {
         if (twitch_streq_lower(name, kPortraits[i].name)) {
             return kPortraits[i].portrait;
@@ -353,6 +391,10 @@ void speak_tick(void) {
     }
 
     sIdleFrames = 0;
+
+    // The box now holds pointers into the buffer we just filled, so the next
+    // message must be built into the other one.
+    sBlobIndex ^= 1;
 
     sQueueHead = (sQueueHead + 1) % SPEAK_QUEUE_SIZE;
     sQueueCount--;
