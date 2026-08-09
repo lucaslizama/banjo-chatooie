@@ -212,9 +212,14 @@ static void build_blob(const char* text, int portrait) {
     }
     sBlob[i++] = 0;
 
-    // The terminator. Without it the state machine advances past the end of the
-    // array `loadAndCreateDialogs` allocated, reads whatever follows as the next
-    // portrait and string, and leaves that box open forever.
+    // The terminator, and it is mandatory rather than tidy. The `default:` branch
+    // of dialog_update reads `CMD(string_index + 1)->cmd` for every non-empty
+    // text entry, to check for the -8/-9 conditional-text markers. So the game
+    // always looks one entry past the one it is showing. Without an entry there,
+    // it reads off the end of the array `loadAndCreateDialogs` allocated, takes
+    // the garbage as the next portrait and string, and leaves that box open
+    // forever -- which then blocks every later conversation, because
+    // gcdialog_hasCurrentTextId() never goes false again.
     sBlob[i++] = 4;                                        // cmd -4 == close
     sBlob[i++] = 1;
     sBlob[i++] = 0;
