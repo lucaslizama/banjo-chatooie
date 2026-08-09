@@ -1,240 +1,123 @@
-# Twitch Chat Integration — Banjo-Kazooie: Recompiled
+# Twitch Chat Integration
 
-Shows your Twitch chat on screen while you play, and lets chat put words in the
-game characters' mouths.
+A mod for Banjo-Kazooie: Recompiled that puts your Twitch chat into the game.
 
-Two things happen with an incoming message:
+Two things happen with an incoming message. It scrolls in a small panel in the
+corner of the screen, and, if you want, a character from the game reads it aloud
+in one of Banjo-Kazooie's own text boxes, with that character's portrait and
+their voice. Bottles, Mumbo, Grunty, Klungo, the Jinjos: chat picks who speaks.
 
-- it scrolls in an overlay panel in the corner of the screen, and
-- if it triggers the speak feature, a character says it in one of the game's own
-  dialogue boxes, with that character's portrait and voice samples.
+The connection is anonymous and read-only. The mod never asks for a Twitch
+account, a password or a token, and it cannot send messages or join more than the
+one channel you name. (The optional channel points feature is the exception, and
+it asks for permission separately. More on that below.)
 
-## Two halves
+## Installing
 
-Mod code compiles to MIPS and runs sandboxed inside the recomp runtime: no
-sockets, no filesystem, no way to reach the network. So the mod is split in two.
+Copy both of these into your mods folder, which is
+`~/.config/BanjoRecompiled/mods` on Linux:
 
-| | what it is | what it does |
-| --- | --- | --- |
-| `native/` | a host shared library, `twitch_chat.so` | connects to Twitch IRC on its own thread, queues messages |
-| `src/` | MIPS mod code, `twitch_chat_integration.nrm` | drains that queue once a frame and draws the overlay |
+- `twitch_chat_integration.nrm`
+- `twitch_chat.so`
 
-The MIPS side reaches the native side with `RECOMP_IMPORT(".", ...)` — `.` means
-"an export of this mod itself", which is how the runtime routes a call into a
-library the mod ships with. Every imported name must also appear in `mod.toml`'s
-`native_libraries` entry.
+They have to sit next to each other. The mod will not load if the second file is
+missing, and putting it anywhere else has no effect.
 
-**The two files are deployed side by side, not nested.** The runtime derives the
-library filename from the manifest name (`twitch_chat` → `twitch_chat.so` on
-Linux, `.dll` on Windows, `.dylib` on macOS) and looks for it in the folder
-*containing* the `.nrm`. Putting it inside the `.nrm` does nothing.
+Then enable the mod in the game's mod menu.
 
-## Build
+## Getting chat on screen
 
-```
-./build.sh            # build/twitch_chat_integration.nrm + build/native/twitch_chat.so
-./build.sh --deploy   # also copies both into ~/.config/BanjoRecompiled/mods
-```
+Open the mod's options and type your channel name into **Twitch Channel**, with
+no `#`. That is the only required setting. Chat should appear within a couple of
+seconds, and you can change the channel while playing without restarting.
 
-You need `clang` and `ld.lld` for the MIPS half, a host C++17 compiler for the
-native half, and `tools/RecompModTool` from the
-[N64Recomp releases page](https://github.com/N64Recomp/N64Recomp/releases)
-(gitignored — it's a prebuilt binary).
+The panel shows each chatter's name in their own Twitch colour. You can move it
+to any corner, change how many lines it keeps, its text size and how solid its
+background is. **Show Chat Overlay** turns it off completely, which is what you
+want if you would rather chat only appeared through the game's text boxes.
 
-The native library links libstdc++ statically, so it doesn't depend on the
-player having a matching toolchain runtime.
+## Making characters talk
 
-## Using it
+**Characters Speak On** decides what makes a character read a message out loud:
 
-Enable the mod, open its options, and type your channel name into **Twitch
-Channel** (no `#`). The overlay picks up the change within a couple of seconds —
-no restart needed. Blank the field to disconnect.
+`!say command` is the default and works on any channel. Someone types
+`!say hello everyone` in chat and a character says it. **Who Can Use !say** can
+narrow that to you and your moderators if chat gets carried away.
 
-**Show Chat Overlay** turns the corner panel off entirely, which is what you want
-if you'd rather chat only appeared through the game's own text boxes. Turning it
-off doesn't stop the mod reading chat — messages still arrive and characters
-still speak them, there's just nothing drawn in the corner.
+`Channel point reward` uses a proper channel points redemption. It needs Twitch
+Affiliate and a small script running alongside the game, described in
+`helper/README.md`.
 
-Other options: how many lines to show, which corner, text size, background
-opacity, and whether to hide `!command` messages aimed at chat bots.
+`Highlight My Message` uses the built-in reward of that name. Also Affiliate only.
 
-## Making characters speak
+`Every message` makes every single line of chat get spoken. Chaotic, but it is
+the fastest way to see whether everything works.
 
-**Characters Speak On** picks the trigger:
+### Choosing who speaks
 
-| Mode | Requirement |
-| --- | --- |
-| `!say command` (default) | none — works on any channel |
-| `Channel point reward` | Twitch Affiliate, plus the [helper script](helper/README.md) running |
-| `Highlight My Message` | Twitch Affiliate, since it's a channel points reward |
-| `Every message` | none — chaotic, useful for testing |
-| `Off` | — |
-
-Channel point redemptions are **not carried over IRC** — they exist only behind
-the authenticated Helix API. `helper/twitch_redemptions.py` fetches them and
-hands them to the mod over a loopback socket; see [helper/README.md](helper/README.md)
-for setup. Everything else in this mod works without it.
-
-Whoever is speaking is chosen by a `name:` prefix, so `!say mumbo: hello banjo`
-comes out of Mumbo. An unrecognised name (or none at all) falls back to the
+Start the message with a name and a colon. `!say mumbo: hello banjo` comes out of
+Mumbo, in Mumbo's voice. Anything without a recognised name falls back to the
 **Default Character** setting.
 
-#### Every name chat can use
+The names chat can use, all case-insensitive:
 
-Names are case-insensitive. A ✔ marks one confirmed against what the game
-actually draws; the rest come from the decomp's labels and may be off by one —
-see the warning below.
+banjo, kazooie, tooty, grunty (or gruntilda), dingpot, bottles, mumbo,
+brentilda, cheato, klungo, boggy, wozza, gobi, rubee, tiptup, tanktup, trunker,
+clanker, snacker, chimpy, conga, blubber, nipper, snippet, flibbit, grabba,
+teehee, juju, yumyum, leaky, gloop, jinxy, croctus, motzhand, tumblar, mummum,
+zubba, gnawty, twinkly, nabnut, eyrie, loggo, lockup, vile, jinjo, yellowjinjo,
+greenjinjo, bluejinjo, pinkjinjo, orangejinjo.
 
-| | | | |
-| --- | --- | --- | --- |
-| `banjo` ✔ | `kazooie` ✔ | `tooty` ✔ | `grunty` / `gruntilda` ✔ |
-| `dingpot` ✔ | `bottles` | `mumbo` | `brentilda` |
-| `cheato` | `klungo` | `boggy` | `wozza` |
-| `gobi` | `rubee` | `tiptup` | `tanktup` |
-| `trunker` | `clanker` | `snacker` | `chimpy` |
-| `conga` | `blubber` | `nipper` | `snippet` |
-| `flibbit` | `grabba` | `teehee` | `juju` |
-| `yumyum` | `leaky` | `gloop` | `jinxy` |
-| `croctus` | `motzhand` | `tumblar` | `mummum` |
-| `zubba` | `gnawty` | `twinkly` | `nabnut` |
-| `eyrie` | `loggo` | `lockup` | `vile` |
-| `jinjo` | `yellowjinjo` | `greenjinjo` | `bluejinjo` |
-| `pinkjinjo` | `orangejinjo` | | |
+Five of those are confirmed to draw who they say they do: banjo, kazooie, tooty,
+grunty and dingpot. The rest come from the community's names for the game's
+portraits and a few of them are probably off by one, so you may get a neighbour
+instead of the character you asked for. If you would rather pick by number,
+`!say #87: hello` uses portrait 87 directly, and any number from 12 to 106 works.
 
-`!say #97: hello` addresses a portrait by raw index instead, which is how to
-check a name against what the game actually draws. That matters, because **the
-decomp's portrait names are not reliable**: the real table has 107 entries and
-the `GcZoomboxSprite` enum names only 106, so every label after the missing one
-sits an index too low. The table's size is recoverable from the symbols —
-`D_8036D924 - D_8036C6C0` is 4708 bytes over a 44-byte `gczoomboxPortraitInfo`,
-exactly 107. Entries marked `verified` in `src/speak.c` were checked against what
-the game renders; the rest are still the enum's guesses.
+## What chat cannot say
 
-### What chat can't put in a text box
+The game's text boxes were built in 1998 for text Rare wrote, so a few things do
+not survive the trip:
 
-Anything above `0x7E` is rejected before it reaches the game. This is not
-fussiness — a message containing accented letters crashed the game outright,
-because `0xFD` is an escape the printer consumes along with the byte after it and
-the rest index off the end of the font.
+Everything is drawn in capitals, because the font has no lowercase letters at
+all. Accented letters are turned into their plain equivalents, so "mañana" comes
+out as MANANA rather than losing the letter. Emoji, Japanese and anything else
+without a reasonable stand-in is dropped, and a message made entirely of those is
+skipped instead of opening an empty box. Very long words get a space forced into
+them, because a word wider than the text box crashes the game.
 
-Text is decoded as UTF-8 and folded to what the font can draw: Latin-1 and Latin
-Extended-A accents become their base letters (`mañana` → `MANANA`), curly quotes
-and dashes become ASCII, and anything with no sensible stand-in — emoji, kana,
-kanji — is dropped. A message that folds away to nothing is skipped rather than
-opening an empty box. The overlay still shows the original text in full.
+None of this affects the corner panel, which shows messages exactly as typed,
+emoji and all.
 
-### Testing shortcut
+## Channel points
 
-**Debug: Boot To Map** skips the intro and file select and drops you straight
-into a level on launch. No save file is loaded, so the world comes up empty —
-it's for testing, not for playing. Off by default. It works by patching
-`getDefaultBootMap`, because `core1_init` picks and enters the boot map before
-`mainThread_entry` ever reaches its `mainLoop` loop, so a per-frame hook is
-always too late.
+Redemptions are not part of Twitch chat, so they need a helper script running
+next to the game and a one-time authorisation. Setup takes about two minutes and
+is written up in `helper/README.md`.
 
-**Who Can Use !say** restricts the command to you and your moderators; `!say` is
-exempt from the "Hide Bot Commands" filter either way.
+It needs Twitch Affiliate. Without channel points on your account there is
+nothing for it to read, and `!say` is the trigger to use instead.
 
-Two things about the game's dialogue system are worth knowing. Its font has no
-lowercase glyphs — real assets store text like `DINGPOT, DINGPOT` — so spoken
-text is upper-cased on the way in, while the overlay keeps the original casing.
-And only portraits `0x0C` and up can be addressed, because the blob's portrait
-byte maps to `cmd + 0xC`; every major speaking character is above that line.
+## While you are testing
 
-## How the dialogue hijack works
+**Debug: Boot To Map** drops you straight into a level when the game starts,
+skipping the intro and the file select. It loads no save file, so the world comes
+up empty. Useful for trying things quickly, not for playing. Leave it off
+otherwise.
 
-`gcdialog_showDialog(text_id, …)` leads to `loadDialogStrings`, which parses a
-byte blob returned by `dialogBin_get`:
+## Troubleshooting
 
-```
-[count][cmd][len][text NUL] x count      <- bottom box
-[count][cmd][len][text NUL] x count      <- top box
-```
+If nothing appears in the corner, check the channel name is spelled right and has
+no `#`. The panel tells you what it is doing, so it will say whether it is
+connecting, connected or failing.
 
-`cmd` selects the portrait (`gczoombox_new` receives `cmd + 0xC`), and the same
-id picks the character's voice samples, since `__gczoombox_load_sfx` reads both
-out of `D_8036C6C0[portrait_id]`. Choosing a character gets the face and the
-voice together. `len` counts the stored bytes including the terminator, and the
-portrait byte carries the high bit so it can't be mistaken for one of the
-commands in the `0x01`–`0x1F` range.
+If characters never speak, check **Characters Speak On** is not set to Off, and
+remember that nothing is spoken during cutscenes. Messages that arrive then are
+not lost, they wait and play once the cutscene ends.
 
-The mod patches `dialogBin_get`, reimplements the original faithfully, and
-substitutes its own blob for exactly one call. That call is carried on a **real**
-asset id rather than an invented one: `dialogBin_release` frees whatever
-`s_dialogBin.ptr` points at, so an id the asset cache never loaded would
-unbalance it.
+If a character's portrait is not who you expected, that is the numbering problem
+described above. Find the right one with `!say #<number>: test`.
 
-Each box's entry list **must** end with a close command (`cmd` `-4`). Without it
-the state machine advances past the end of the array `loadAndCreateDialogs`
-allocated, reads whatever follows as the next portrait and string, and leaves
-that box open forever — which then blocks every later conversation in the game,
-since `gcdialog_hasCurrentTextId()` never goes false again.
+## Building it yourself
 
-Long messages need no splitting: the zoombox wraps and scrolls by itself via
-`_gczoombox_findLineBreak` at 24 characters per line — **but no single word may
-be longer than that line**. The wrap scan walks backwards looking for a space
-that fits, with no lower bound on its index, so a longer word runs it off the
-front of the string and it returns a negative length the caller writes through as
-`unk60[negative] = 0`. Rare's dialogue has no word that long; chat does. The mod
-forces a break into any run over 18 characters.
-
-Injecting a box **during a cutscene** corrupts the dialogue state and crashes, so
-the mod refuses on cutscene maps and waits for 30 consecutive idle frames first.
-
-`loadDialogStrings` copies the portrait and length bytes into its own allocation
-but keeps `str` as a pointer straight into the blob, for as long as the box is on
-screen — so the blob is double buffered, or building the next message would
-rewrite live text underneath the current one.
-
-## About the connection
-
-Twitch allows anonymous read access to any public channel's chat, so the mod logs
-in as `justinfan<random>` with no password.
-
-- **No credentials.** The mod never asks for a Twitch account, password, or OAuth
-  token, and there are none in this repo. There should never be.
-- **Read-only.** It cannot send messages, and it joins exactly one channel.
-- **Nothing is stored.** Messages live in a small in-memory queue and are dropped
-  once they scroll off the overlay.
-
-Chat is arbitrary user input, so messages are sanitized before they reach the UI:
-control characters stripped, whitespace collapsed, length capped, and truncation
-kept on UTF-8 boundaries.
-
-The connection uses Twitch's plaintext IRC port (6667) rather than TLS (6697).
-Nothing secret crosses it — the login is anonymous and the content is already
-public — and avoiding TLS keeps an OpenSSL dependency out of a library that has
-to be shipped prebuilt for three platforms. If Twitch ever drops plaintext IRC,
-this is the thing that will break first.
-
-## How it hooks into the game
-
-`recomp_on_init` is the only event the recomp runtime declares, and it fires once
-at boot — the mod uses it to open the connection. For a per-frame tick the mod
-hooks `mainLoop`, Banjo-Kazooie's own frame function
-(`bk-decomp/src/core1/code_0.c`), which is called from `mainThread_entry`'s loop.
-
-The overlay is built on the first frame rather than during `recomp_on_init`, so
-the UI system is definitely up before any `recompui` call happens.
-
-Each frame the tick drains at most three messages. A busy channel can arrive
-faster than that, but draining the whole queue in one frame would let chat
-dictate frame time.
-
-## Layout
-
-```
-mod.toml            manifest: config options, native library declaration
-Makefile            MIPS build
-mod.ld              MIPS linker script
-build.sh            builds both halves, packages, optionally deploys
-include/            recomp API headers + the shared MIPS/native contract
-src/                MIPS mod code (main.c, overlay.c, speak.c)
-native/             host library (irc_client.cpp, twitch_chat.cpp, recomp_abi.h)
-```
-
-`native/recomp_abi.h` is a hand-written copy of the parts of the runtime's ABI
-this library needs — the `recomp_context` layout, the rdram address translation
-with its byteswap, and argument/return helpers. librecomp isn't distributed as an
-SDK, so there is nothing to include; the definitions there were taken from
-`N64Recomp/include/recomp.h` and `librecomp/include/librecomp/helpers.hpp`.
+See `DEVELOPING.md`.
