@@ -14,3 +14,8 @@ build/
 # See README.md -- build.sh prints the URL if it's missing.
 tools/RecompModTool
 tools/RecompModTool.exe
+
+# Belt and braces: the helper stores its OAuth token in ~/.config, but never
+# let one land in the repo even if someone points --config at the tree.
+twitch_redemptions.json
+*.token

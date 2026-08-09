@@ -19,7 +19,7 @@ LIB_NAME := twitch_chat
 TARGET   := $(BUILD_DIR)/$(LIB_NAME)$(LIB_EXT)
 
 CXX      ?= g++
-SRCS     := twitch_chat.cpp irc_client.cpp
+SRCS     := twitch_chat.cpp irc_client.cpp redemption_client.cpp
 OBJS     := $(addprefix $(BUILD_DIR)/, $(SRCS:.cpp=.o))
 DEPS     := $(OBJS:.o=.d)
 

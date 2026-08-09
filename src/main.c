@@ -36,11 +36,16 @@ static int sLastState = -1;
 static int sHideCommands = 1;
 static int sOverlayReady = 0;
 
-// Values of the "speak_trigger" config option, in menu order.
+// Values of the "speak_trigger" config option. These must stay in the same order
+// as the `options` list in mod.toml -- the runtime returns the chosen index.
 #define SPEAK_TRIGGER_OFF        0
-#define SPEAK_TRIGGER_HIGHLIGHT  1
-#define SPEAK_TRIGGER_COMMAND    2
-#define SPEAK_TRIGGER_EVERYTHING 3
+#define SPEAK_TRIGGER_REDEEMED   1
+#define SPEAK_TRIGGER_HIGHLIGHT  2
+#define SPEAK_TRIGGER_COMMAND    3
+#define SPEAK_TRIGGER_EVERYTHING 4
+
+// Loopback port the helper serves redemptions on. Matches the helper's default.
+#define REDEMPTION_PORT 47474
 
 #define SPEAK_PERMISSION_ANYONE 0
 
@@ -108,6 +113,9 @@ static const char* speakable_body(const char* text, int flags) {
     int i;
 
     switch (sSpeakTrigger) {
+        case SPEAK_TRIGGER_REDEEMED:
+            return (flags & TWITCH_MSG_REDEEMED) ? text : NULL;
+
         case SPEAK_TRIGGER_HIGHLIGHT:
             return (flags & TWITCH_MSG_HIGHLIGHTED) ? text : NULL;
 
@@ -197,6 +205,14 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         OverlaySettings settings;
         read_settings(&settings);
         read_default_portrait();
+
+        // Only run the redemption reader when it's the chosen trigger -- it
+        // means a helper process, so there is no point connecting otherwise.
+        if (sSpeakTrigger == SPEAK_TRIGGER_REDEEMED) {
+            twitch_redemptions_start(REDEMPTION_PORT);
+        } else {
+            twitch_redemptions_stop();
+        }
 
         // Only touch the UI when something actually changed. Re-applying every
         // poll meant ~30 recompui mutations twice a second forever, which is a

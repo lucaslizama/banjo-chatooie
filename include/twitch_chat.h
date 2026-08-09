@@ -29,4 +29,13 @@ RECOMP_IMPORT(".", int twitch_chat_get_state());
 // Returns 1 if a message was written, 0 if there was nothing waiting.
 RECOMP_IMPORT(".", int twitch_chat_next_message(char* user_out, char* text_out, int* color_out, int* flags_out));
 
+// Channel point redemptions arrive from a helper process on loopback rather than
+// over IRC, because custom rewards only exist behind the authenticated Helix
+// API. Starting this when the helper isn't running is harmless -- it retries
+// quietly and everything else carries on. Messages it produces come back from
+// twitch_chat_next_message with TWITCH_MSG_REDEEMED set.
+RECOMP_IMPORT(".", void twitch_redemptions_start(int port));
+RECOMP_IMPORT(".", void twitch_redemptions_stop());
+RECOMP_IMPORT(".", int twitch_redemptions_get_state());
+
 #endif // TWITCH_CHAT_H

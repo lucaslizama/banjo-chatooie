@@ -32,4 +32,8 @@
 // Sent by the broadcaster or one of their moderators.
 #define TWITCH_MSG_PRIVILEGED 0x2
 
+// A channel point redemption, delivered by the helper process rather than over
+// IRC. Custom rewards are not carried on IRC at all -- see helper/README.
+#define TWITCH_MSG_REDEEMED 0x4
+
 #endif // TWITCH_CHAT_ABI_H

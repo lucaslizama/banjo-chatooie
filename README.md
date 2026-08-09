@@ -60,9 +60,15 @@ opacity, and whether to hide `!command` messages aimed at chat bots.
 | Mode | Requirement |
 | --- | --- |
 | `!say command` (default) | none — works on any channel |
+| `Channel point reward` | Twitch Affiliate, plus the [helper script](helper/README.md) running |
 | `Highlight My Message` | Twitch Affiliate, since it's a channel points reward |
 | `Every message` | none — chaotic, useful for testing |
 | `Off` | — |
+
+Channel point redemptions are **not carried over IRC** — they exist only behind
+the authenticated Helix API. `helper/twitch_redemptions.py` fetches them and
+hands them to the mod over a loopback socket; see [helper/README.md](helper/README.md)
+for setup. Everything else in this mod works without it.
 
 Whoever is speaking is chosen by a `name:` prefix, so `!say mumbo: hello banjo`
 comes out of Mumbo. An unrecognised name (or none at all) falls back to the

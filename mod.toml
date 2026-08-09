@@ -45,6 +45,9 @@ native_libraries = [
         "twitch_chat_stop",
         "twitch_chat_get_state",
         "twitch_chat_next_message",
+        "twitch_redemptions_start",
+        "twitch_redemptions_stop",
+        "twitch_redemptions_get_state",
     ] }
 ]
 
@@ -102,9 +105,9 @@ default = 45
 [[manifest.config_options]]
 id = "speak_trigger"
 name = "Characters Speak On"
-description = "What makes a game character read a message aloud in a text box. 'Highlight My Message' needs Twitch Affiliate (channel points); the !say command works on any channel."
+description = "What makes a game character read a message aloud in a text box. Both channel point options need Twitch Affiliate; 'Channel point reward' also needs the helper script running. The !say command works on any channel."
 type = "Enum"
-options = [ "Off", "Highlight My Message", "!say command", "Every message" ]
+options = [ "Off", "Channel point reward", "Highlight My Message", "!say command", "Every message" ]
 default = "!say command"
 
 [[manifest.config_options]]

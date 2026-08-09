@@ -40,6 +40,9 @@ struct ChatMessage {
     bool highlighted = false;
     // The broadcaster or one of their moderators. Works on any channel.
     bool privileged = false;
+    // Came from a channel point redemption via the helper process rather than
+    // from chat. See redemption_client.h.
+    bool redeemed = false;
 };
 
 class IrcClient {

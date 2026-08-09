@@ -10,6 +10,7 @@
 
 #include "recomp_abi.h"
 #include "irc_client.h"
+#include "redemption_client.h"
 
 #include "../include/twitch_chat_abi.h"
 
@@ -23,6 +24,28 @@ RECOMP_EXPORT_DATA_END
 RECOMP_EXPORT void twitch_chat_start(uint8_t* rdram, recomp_context* ctx) {
     std::string channel = arg_string(rdram, ctx, 0, 64);
     twitch::client().start(channel);
+}
+
+// void twitch_redemptions_start(int port)
+//
+// Connects to the helper process on loopback. Retries quietly if it isn't
+// running, so the mod works with or without it.
+RECOMP_EXPORT void twitch_redemptions_start(uint8_t* rdram, recomp_context* ctx) {
+    (void)rdram;
+    twitch::redemptions().start((int)arg_u32(ctx, 0));
+}
+
+// void twitch_redemptions_stop(void)
+RECOMP_EXPORT void twitch_redemptions_stop(uint8_t* rdram, recomp_context* ctx) {
+    (void)rdram;
+    (void)ctx;
+    twitch::redemptions().stop();
+}
+
+// int twitch_redemptions_get_state(void)
+RECOMP_EXPORT void twitch_redemptions_get_state(uint8_t* rdram, recomp_context* ctx) {
+    (void)rdram;
+    ret_s32(ctx, (int32_t)twitch::redemptions().state());
 }
 
 // void twitch_chat_stop(void)
@@ -54,8 +77,10 @@ RECOMP_EXPORT void twitch_chat_next_message(uint8_t* rdram, recomp_context* ctx)
     uint32_t color_addr = arg_u32(ctx, 2);
     uint32_t flags_addr = arg_u32(ctx, 3);
 
+    // Redemptions first: someone spent points on theirs, so it should not sit
+    // behind a backlog of ordinary chat.
     twitch::ChatMessage msg;
-    if (!twitch::client().pop(msg)) {
+    if (!twitch::redemptions().pop(msg) && !twitch::client().pop(msg)) {
         ret_s32(ctx, 0);
         return;
     }
@@ -72,6 +97,9 @@ RECOMP_EXPORT void twitch_chat_next_message(uint8_t* rdram, recomp_context* ctx)
         }
         if (msg.privileged) {
             flags |= TWITCH_MSG_PRIVILEGED;
+        }
+        if (msg.redeemed) {
+            flags |= TWITCH_MSG_REDEEMED;
         }
         mem_write_u32(rdram, flags_addr, flags);
     }
