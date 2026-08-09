@@ -70,6 +70,37 @@ comes out of Mumbo. An unrecognised name (or none at all) falls back to the
 bottles, mumbo, grunty, tooty, brentilda, cheato, klungo, boggy, wozza, gobi,
 rubee, tiptup, clanker, snacker, the five jinjo colours, and more.
 
+`!say #97: hello` addresses a portrait by raw index instead, which is how to
+check a name against what the game actually draws. That matters, because **the
+decomp's portrait names are not reliable**: the real table has 107 entries and
+the `GcZoomboxSprite` enum names only 106, so every label after the missing one
+sits an index too low. The table's size is recoverable from the symbols —
+`D_8036D924 - D_8036C6C0` is 4708 bytes over a 44-byte `gczoomboxPortraitInfo`,
+exactly 107. Entries marked `verified` in `src/speak.c` were checked against what
+the game renders; the rest are still the enum's guesses.
+
+### What chat can't put in a text box
+
+Anything above `0x7E` is rejected before it reaches the game. This is not
+fussiness — a message containing accented letters crashed the game outright,
+because `0xFD` is an escape the printer consumes along with the byte after it and
+the rest index off the end of the font.
+
+Text is decoded as UTF-8 and folded to what the font can draw: Latin-1 and Latin
+Extended-A accents become their base letters (`mañana` → `MANANA`), curly quotes
+and dashes become ASCII, and anything with no sensible stand-in — emoji, kana,
+kanji — is dropped. A message that folds away to nothing is skipped rather than
+opening an empty box. The overlay still shows the original text in full.
+
+### Testing shortcut
+
+**Debug: Boot To Map** skips the intro and file select and drops you straight
+into a level on launch. No save file is loaded, so the world comes up empty —
+it's for testing, not for playing. Off by default. It works by patching
+`getDefaultBootMap`, because `core1_init` picks and enters the boot map before
+`mainThread_entry` ever reaches its `mainLoop` loop, so a per-frame hook is
+always too late.
+
 **Who Can Use !say** restricts the command to you and your moderators; `!say` is
 exempt from the "Hide Bot Commands" filter either way.
 
@@ -109,7 +140,20 @@ that box open forever — which then blocks every later conversation in the game
 since `gcdialog_hasCurrentTextId()` never goes false again.
 
 Long messages need no splitting: the zoombox wraps and scrolls by itself via
-`_gczoombox_findLineBreak` at 24 characters per line.
+`_gczoombox_findLineBreak` at 24 characters per line — **but no single word may
+be longer than that line**. The wrap scan walks backwards looking for a space
+that fits, with no lower bound on its index, so a longer word runs it off the
+front of the string and it returns a negative length the caller writes through as
+`unk60[negative] = 0`. Rare's dialogue has no word that long; chat does. The mod
+forces a break into any run over 18 characters.
+
+Injecting a box **during a cutscene** corrupts the dialogue state and crashes, so
+the mod refuses on cutscene maps and waits for 30 consecutive idle frames first.
+
+`loadDialogStrings` copies the portrait and length bytes into its own allocation
+but keeps `str` as a pointer straight into the blob, for as long as the box is on
+screen — so the blob is double buffered, or building the next message would
+rewrite live text underneath the current one.
 
 ## About the connection
 
