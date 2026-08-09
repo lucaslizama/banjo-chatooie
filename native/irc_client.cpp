@@ -41,6 +41,14 @@ constexpr const char* kPort = "6667";
 constexpr size_t kMaxUserLen = 32;
 constexpr size_t kMaxTextLen = 240;
 
+// How long a single recv() may block. Short enough that a shutdown request is
+// noticed promptly even if the socket shutdown below were ever to be missed.
+constexpr int kRecvTimeoutSeconds = 5;
+
+// Twitch pings roughly every five minutes; if nothing at all arrives for well
+// past that, the connection is dead and worth rebuilding.
+constexpr int kSilenceLimitSeconds = 360;
+
 void log(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -161,14 +169,15 @@ socket_t connect_to_twitch() {
     ::freeaddrinfo(results);
 
     if (fd != INVALID_SOCKET_VALUE) {
-        // A read timeout doubles as the liveness check: if Twitch goes quiet for
-        // longer than its ~5 minute PING interval, the connection is dead.
+        // Kept short so the reader loop comes up for air regularly and notices a
+        // shutdown request. Liveness is judged separately, by counting how long
+        // Twitch has been silent across timeouts.
 #if defined(_WIN32)
-        DWORD timeout_ms = 330 * 1000;
+        DWORD timeout_ms = kRecvTimeoutSeconds * 1000;
         ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout_ms, sizeof(timeout_ms));
 #else
         timeval timeout{};
-        timeout.tv_sec = 330;
+        timeout.tv_sec = kRecvTimeoutSeconds;
         ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 #endif
         int one = 1;
@@ -229,6 +238,25 @@ void IrcClient::start(const std::string& channel) {
     thread_ = std::thread(&IrcClient::run, this, normalized);
 }
 
+void IrcClient::set_active_socket(intptr_t fd) {
+    std::lock_guard<std::mutex> lock(socket_mutex_);
+    active_socket_ = fd;
+}
+
+// Breaks the reader thread out of a blocking recv() without closing the socket
+// out from under it -- the thread still owns the descriptor and closes it itself,
+// so there is no window where the number could be reused by another thread.
+void IrcClient::interrupt_active_socket() {
+    std::lock_guard<std::mutex> lock(socket_mutex_);
+    if (active_socket_ != -1) {
+#if defined(_WIN32)
+        ::shutdown((socket_t)active_socket_, SD_BOTH);
+#else
+        ::shutdown((socket_t)active_socket_, SHUT_RDWR);
+#endif
+    }
+}
+
 void IrcClient::stop() {
     if (!running_.exchange(false)) {
         if (thread_.joinable()) {
@@ -236,6 +264,7 @@ void IrcClient::stop() {
         }
         return;
     }
+    interrupt_active_socket();
     wake_.notify_all();
     if (thread_.joinable()) {
         thread_.join();
@@ -299,18 +328,32 @@ void IrcClient::run(std::string channel) {
         if (fd != INVALID_SOCKET_VALUE) {
             state_.store(State::Connected);
             backoff_seconds = 1;
+            set_active_socket((intptr_t)fd);
 
             std::string buffer;
             char chunk[4096];
+            int silent_seconds = 0;
             while (running_.load()) {
 #if defined(_WIN32)
                 int n = ::recv(fd, chunk, (int)sizeof(chunk), 0);
 #else
                 ssize_t n = ::recv(fd, chunk, sizeof(chunk), 0);
 #endif
-                if (n <= 0) {
-                    break;
+                if (n == 0) {
+                    break;  // clean close by the far end
                 }
+                if (n < 0) {
+                    // A timeout is the expected case and just means chat is
+                    // quiet; anything else is a dead socket. Distinguishing them
+                    // portably isn't worth it -- give up only once the silence
+                    // has run well past Twitch's ping interval.
+                    silent_seconds += kRecvTimeoutSeconds;
+                    if (silent_seconds >= kSilenceLimitSeconds) {
+                        break;
+                    }
+                    continue;
+                }
+                silent_seconds = 0;
                 buffer.append(chunk, (size_t)n);
 
                 // A single recv can hold several lines, or half of one.
@@ -333,6 +376,7 @@ void IrcClient::run(std::string channel) {
                 }
             }
 
+            set_active_socket(-1);
             close_socket(fd);
             if (running_.load()) {
                 log("disconnected from #%s, reconnecting", channel.c_str());
@@ -416,6 +460,15 @@ void IrcClient::handle_line(const std::string& line, int socket_fd, const std::s
     msg.user = sanitize(user, kMaxUserLen);
     msg.text = sanitize(text, kMaxTextLen);
     msg.color = parse_hex_color(tag_value(tags, "color"));
+    msg.highlighted = tag_value(tags, "msg-id") == "highlighted-message";
+
+    // Moderators carry mod=1; the broadcaster does not, and is identified by the
+    // broadcaster badge instead.
+    {
+        std::string badges = tag_value(tags, "badges");
+        msg.privileged = tag_value(tags, "mod") == "1" ||
+                         badges.find("broadcaster/") != std::string::npos;
+    }
 
     if (msg.user.empty() || msg.text.empty()) {
         return;

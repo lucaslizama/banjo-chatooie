@@ -33,6 +33,13 @@ struct ChatMessage {
     std::string text;
     // 0xRRGGBB, or -1 when the chatter has never picked a colour.
     int32_t color = -1;
+    // Set for messages sent through the built-in "Highlight My Message" channel
+    // point reward, which Twitch marks with msg-id=highlighted-message. This is
+    // the one redemption an anonymous reader can see. Channel points need
+    // Twitch Affiliate status, so this never fires on a plain channel.
+    bool highlighted = false;
+    // The broadcaster or one of their moderators. Works on any channel.
+    bool privileged = false;
 };
 
 class IrcClient {
@@ -58,9 +65,18 @@ private:
     void handle_line(const std::string& line, int socket_fd, const std::string& channel);
     void push(ChatMessage&& msg);
 
+    void set_active_socket(intptr_t fd);
+    void interrupt_active_socket();
+
     std::thread thread_;
     std::atomic<bool> running_{false};
     std::atomic<State> state_{State::Idle};
+
+    // The socket the reader thread is currently blocked on, or -1. stop() shuts
+    // it down to break that thread out of recv() immediately; without this,
+    // joining waits out the whole receive timeout and the game hangs on exit.
+    intptr_t active_socket_ = -1;
+    std::mutex socket_mutex_;
 
     std::mutex mutex_;
     std::deque<ChatMessage> queue_;

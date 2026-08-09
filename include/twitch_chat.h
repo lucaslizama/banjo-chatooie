@@ -24,8 +24,9 @@ RECOMP_IMPORT(".", int twitch_chat_get_state());
 
 // Pops the oldest queued message. `user_out` must have room for
 // TWITCH_USER_CAPACITY bytes and `text_out` for TWITCH_TEXT_CAPACITY; both come
-// back zero-terminated. `color_out` receives 0xRRGGBB or TWITCH_COLOR_NONE.
+// back zero-terminated. `color_out` receives 0xRRGGBB or TWITCH_COLOR_NONE, and
+// `flags_out` a mask of TWITCH_MSG_*.
 // Returns 1 if a message was written, 0 if there was nothing waiting.
-RECOMP_IMPORT(".", int twitch_chat_next_message(char* user_out, char* text_out, int* color_out));
+RECOMP_IMPORT(".", int twitch_chat_next_message(char* user_out, char* text_out, int* color_out, int* flags_out));
 
 #endif // TWITCH_CHAT_H

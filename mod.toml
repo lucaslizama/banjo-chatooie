@@ -100,6 +100,37 @@ percent = false
 default = 45
 
 [[manifest.config_options]]
+id = "speak_trigger"
+name = "Characters Speak On"
+description = "What makes a game character read a message aloud in a text box. 'Highlight My Message' needs Twitch Affiliate (channel points); the !say command works on any channel."
+type = "Enum"
+options = [ "Off", "Highlight My Message", "!say command", "Every message" ]
+default = "!say command"
+
+[[manifest.config_options]]
+id = "speak_permission"
+name = "Who Can Use !say"
+description = "Restrict the !say command to you and your moderators, or let anyone in chat use it."
+type = "Enum"
+options = [ "Anyone", "Mods & Broadcaster" ]
+default = "Anyone"
+
+[[manifest.config_options]]
+id = "default_character"
+name = "Default Character"
+description = "Who speaks when nobody picks a character. Chatters choose one by starting with e.g. 'mumbo:' -- so '!say mumbo: hello'. Names: banjo, kazooie, bottles, mumbo, grunty, tooty, brentilda, cheato, klungo, boggy, gobi, rubee, tiptup, jinjo, and more."
+type = "String"
+default = "bottles"
+
+[[manifest.config_options]]
+id = "speak_show_name"
+name = "Say Who Sent It"
+description = "Put the chatter's name in front of the spoken message."
+type = "Enum"
+options = [ "Off", "On" ]
+default = "On"
+
+[[manifest.config_options]]
 id = "hide_commands"
 name = "Hide Bot Commands"
 description = "Skip messages starting with '!', which are usually aimed at chat bots."

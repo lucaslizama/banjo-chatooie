@@ -38,15 +38,21 @@ RECOMP_EXPORT void twitch_chat_get_state(uint8_t* rdram, recomp_context* ctx) {
     ret_s32(ctx, (int32_t)twitch::client().state());
 }
 
-// int twitch_chat_next_message(char* user_out, char* text_out, int* color_out)
+// int twitch_chat_next_message(char* user_out, char* text_out, int* color_out,
+//                              int* flags_out)
 //
 // Pops one message into the caller's buffers, which must be
-// TWITCH_USER_CAPACITY and TWITCH_TEXT_CAPACITY bytes. Returns 1 if a message
-// was written and 0 if the queue is empty.
+// TWITCH_USER_CAPACITY and TWITCH_TEXT_CAPACITY bytes. `flags_out` receives a
+// bitmask of TWITCH_MSG_*. Returns 1 if a message was written and 0 if the
+// queue is empty.
+//
+// Four arguments is the ceiling here: a fifth would come off the guest stack
+// rather than a register.
 RECOMP_EXPORT void twitch_chat_next_message(uint8_t* rdram, recomp_context* ctx) {
     uint32_t user_addr = arg_u32(ctx, 0);
     uint32_t text_addr = arg_u32(ctx, 1);
     uint32_t color_addr = arg_u32(ctx, 2);
+    uint32_t flags_addr = arg_u32(ctx, 3);
 
     twitch::ChatMessage msg;
     if (!twitch::client().pop(msg)) {
@@ -58,6 +64,16 @@ RECOMP_EXPORT void twitch_chat_next_message(uint8_t* rdram, recomp_context* ctx)
     write_string(rdram, text_addr, msg.text, TWITCH_TEXT_CAPACITY);
     if (color_addr != 0) {
         mem_write_u32(rdram, color_addr, (uint32_t)msg.color);
+    }
+    if (flags_addr != 0) {
+        uint32_t flags = 0;
+        if (msg.highlighted) {
+            flags |= TWITCH_MSG_HIGHLIGHTED;
+        }
+        if (msg.privileged) {
+            flags |= TWITCH_MSG_PRIVILEGED;
+        }
+        mem_write_u32(rdram, flags_addr, flags);
     }
 
     ret_s32(ctx, 1);

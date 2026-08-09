@@ -21,4 +21,15 @@
 // Returned in place of a colour when the chatter has never chosen one.
 #define TWITCH_COLOR_NONE (-1)
 
+// Message flags.
+//
+// Sent through the built-in "Highlight My Message" channel point reward. This is
+// the only redemption visible to an anonymous reader -- custom rewards are not
+// carried over IRC and need an authenticated EventSub connection. Channel points
+// require Twitch Affiliate status, so this never fires on a plain channel.
+#define TWITCH_MSG_HIGHLIGHTED 0x1
+
+// Sent by the broadcaster or one of their moderators.
+#define TWITCH_MSG_PRIVILEGED 0x2
+
 #endif // TWITCH_CHAT_ABI_H
