@@ -64,7 +64,11 @@
 // guarantee a space inside every window the scan can look at.
 #define SPEAK_MAX_WORD 18
 
-#define SPEAK_QUEUE_SIZE 6
+// Messages queued while a cutscene or another conversation is up wait rather
+// than being thrown away, so this wants enough depth to cover a long cutscene
+// without losing the messages sent at the start of it. At ~204 bytes an entry
+// this is a few KB of BSS, which is cheap next to dropping someone's message.
+#define SPEAK_QUEUE_SIZE 16
 
 typedef struct {
     char text[SPEAK_MAX_TEXT];
