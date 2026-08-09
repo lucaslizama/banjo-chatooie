@@ -53,6 +53,9 @@ static int sSpeakPermission = SPEAK_PERMISSION_ANYONE;
 static int sSpeakShowName = 1;
 static int sDefaultPortrait = SPEAK_DEFAULT_PORTRAIT;
 
+// What the overlay was last told, so a poll that changes nothing costs nothing.
+static OverlaySettings sLastSettings;
+
 static void read_settings(OverlaySettings* out) {
     out->line_count = (unsigned long)recomp_get_config_double("line_count");
     out->corner = recomp_get_config_u32("corner");
@@ -193,8 +196,18 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
     if ((sFrame % SETTINGS_POLL_FRAMES) == 0) {
         OverlaySettings settings;
         read_settings(&settings);
-        overlay_apply_settings(&settings);
         read_default_portrait();
+
+        // Only touch the UI when something actually changed. Re-applying every
+        // poll meant ~30 recompui mutations twice a second forever, which is a
+        // lot of churn to ask of the UI system for no visible effect.
+        if (settings.line_count != sLastSettings.line_count ||
+            settings.corner != sLastSettings.corner ||
+            settings.text_size != sLastSettings.text_size ||
+            settings.background_opacity != sLastSettings.background_opacity) {
+            overlay_apply_settings(&settings);
+            sLastSettings = settings;
+        }
     }
 
     if ((sFrame % CHANNEL_POLL_FRAMES) == 0 && refresh_channel()) {
