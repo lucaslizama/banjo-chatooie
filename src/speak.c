@@ -248,6 +248,56 @@ RECOMP_PATCH char* dialogBin_get(s32 text_id) {
 // The unused box gets a single "close" entry (cmd -4) rather than a count of
 // zero, because `loadAndCreateDialogs` reads element [0] unconditionally and a
 // zero count would leave it reading a zero-sized allocation.
+// Maps a Unicode codepoint to a character the dialogue font can draw, or '\0'
+// to drop it. This is a whitelist on purpose: the renderer only ever saw the
+// bytes Rare put in the ROM, and anything above 0x7E is either the 0xFD escape
+// or an index off the end of the font.
+//
+// Accented Latin letters fold to their base letter rather than disappearing, so
+// "MAÑANA" reads as "MANANA" instead of "MAANA". Everything without a sensible
+// stand-in -- emoji, CJK, symbols -- is dropped.
+static char ascii_fold(unsigned int codepoint) {
+    // U+00C0 to U+00FF, in order. 'x' stands in for the multiplication and
+    // division signs, which are the only non-letters in the block.
+    static const char kLatin1[] =
+        "AAAAAAACEEEEIIII"      /* U+00C0 - U+00CF  À Á Â Ã Ä Å Æ Ç È É Ê Ë Ì Í Î Ï */
+        "DNOOOOOxOUUUUYPS"      /* U+00D0 - U+00DF  Ð Ñ Ò Ó Ô Õ Ö × Ø Ù Ú Û Ü Ý Þ ß */
+        "AAAAAAACEEEEIIII"      /* U+00E0 - U+00EF  à á â ã ä å æ ç è é ê ë ì í î ï */
+        "DNOOOOOxOUUUUYPY";     /* U+00F0 - U+00FF  ð ñ ò ó ô õ ö ÷ ø ù ú û ü ý þ ÿ */
+
+    if (codepoint >= 0x20 && codepoint <= 0x7E) {
+        return (char)codepoint;
+    }
+    // U+0100 to U+017F, Latin Extended-A, in order. Covers the accented letters
+    // Latin-1 misses -- ā ī ō, ł, ń, š, ž and friends.
+    static const char kLatinExtA[] =
+        "AAAAAACCCCCCCCDD"      /* U+0100 - U+010F */
+        "DDEEEEEEEEEEGGGG"      /* U+0110 - U+011F */
+        "GGGGHHHHIIIIIIII"      /* U+0120 - U+012F */
+        "IIIIJJKKKLLLLLLL"      /* U+0130 - U+013F */
+        "LLLNNNNNNNNNOOOO"      /* U+0140 - U+014F */
+        "OOOORRRRRRSSSSSS"      /* U+0150 - U+015F */
+        "SSTTTTTTUUUUUUUU"      /* U+0160 - U+016F */
+        "UUUUWWYYYZZZZZZS";     /* U+0170 - U+017F */
+
+    if (codepoint >= 0xC0 && codepoint <= 0xFF) {
+        return kLatin1[codepoint - 0xC0];
+    }
+    if (codepoint >= 0x100 && codepoint <= 0x17F) {
+        return kLatinExtA[codepoint - 0x100];
+    }
+
+    // Curly quotes and dashes are common in chat and have obvious equivalents.
+    switch (codepoint) {
+        case 0x2018: case 0x2019: return '\'';
+        case 0x201C: case 0x201D: return '"';
+        case 0x2013: case 0x2014: return '-';
+        case 0x2026: return '.';
+        case 0x00A0: return ' ';
+        default: return '\0';
+    }
+}
+
 static void build_blob(const char* text, int portrait) {
     int i = 0;
     int length_index;
@@ -266,8 +316,44 @@ static void build_blob(const char* text, int portrait) {
     sBlob[i++] = (unsigned char)(((portrait - 0x0C) & 0x7F) | 0x80);
     length_index = i++;              // filled in below, once the length is known
 
-    for (j = 0; text[j] != '\0' && written < SPEAK_MAX_TEXT - 1; j++) {
-        char c = text[j];
+    for (j = 0; text[j] != '\0' && written < SPEAK_MAX_TEXT - 1; ) {
+        unsigned char lead = (unsigned char)text[j];
+        unsigned int codepoint;
+        int continuations;
+        char c;
+
+        // Decode one UTF-8 character. Chat is UTF-8 and the overlay renders it
+        // fine, but the dialogue box must not see a byte above 0x7E: 0xFD is an
+        // escape the printer consumes along with the byte after it, and the rest
+        // index off the end of the font. A message with accented letters in it
+        // crashed the game outright.
+        if (lead < 0x80) {
+            codepoint = lead;
+            continuations = 0;
+        } else if ((lead & 0xE0) == 0xC0) {
+            codepoint = lead & 0x1Fu;
+            continuations = 1;
+        } else if ((lead & 0xF0) == 0xE0) {
+            codepoint = lead & 0x0Fu;
+            continuations = 2;
+        } else if ((lead & 0xF8) == 0xF0) {
+            codepoint = lead & 0x07u;
+            continuations = 3;
+        } else {
+            j++;            // stray continuation byte; nothing sensible to do
+            continue;
+        }
+
+        j++;
+        while (continuations-- > 0 && ((unsigned char)text[j] & 0xC0) == 0x80) {
+            codepoint = (codepoint << 6) | ((unsigned char)text[j] & 0x3Fu);
+            j++;
+        }
+
+        c = ascii_fold(codepoint);
+        if (c == '\0') {
+            continue;       // emoji and anything else with no ASCII stand-in
+        }
 
         if (c == ' ') {
             run = 0;
