@@ -113,6 +113,7 @@ extern struct {
 } s_dialogBin;
 extern s32 code94620_func_8031B5B0(void);
 extern void func_803114D0(void);        // asks the current dialogue to close
+// gctransition_active is already declared in bk-decomp/include/gc/gctransition.h
 extern s32 gcdialog_hasCurrentTextId(void);
 extern s32 getGameMode(void);
 extern s32 map_get(void);
@@ -146,6 +147,7 @@ static int is_safe_map(s32 map) {
 #define SPEAK_IDLE_FRAMES 90
 
 static int sIdleFrames = 0;
+static s32 sLastMap = -1;
 
 // Story dialogue always wins.
 //
@@ -551,11 +553,44 @@ void speak_tick(void) {
 
     // D_8027A130 == 3 is the in-game state that mainLoop runs the world update
     // in; anything else (boot, file select, cutscene transitions) has no
-    // dialogue system to talk to.
-    if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL ||
-        gcdialog_hasCurrentTextId() || !is_safe_map(map_get())) {
+    // dialogue system to talk to. Checked first, because everything below calls
+    // into core2, which is not loaded otherwise.
+    if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL) {
         sIdleFrames = 0;
         return;
+    }
+
+    // Get out of the way of a map transition.
+    //
+    // A transition tears down the heap, and our box's entry arrays were
+    // allocated from it while dialogBin_release frees the carrier asset back
+    // into it. Leaving a box open across that is asking for a dangling pointer
+    // or an unbalanced free, and a corrupted allocator shows up later as
+    // unrelated things holding wrong addresses.
+    if (gctransition_active()) {
+        if (sOursShowing) {
+            requeue_front(&sShowing);
+            sOursShowing = 0;
+            func_803114D0();
+        }
+        sIdleFrames = 0;
+        return;
+    }
+
+    // A map change resets everything: whatever we thought was on screen belongs
+    // to the world that just went away.
+    {
+        s32 map = map_get();
+        if (map != sLastMap) {
+            sLastMap = map;
+            sOursShowing = 0;
+            sIdleFrames = 0;
+            return;
+        }
+        if (gcdialog_hasCurrentTextId() || !is_safe_map(map)) {
+            sIdleFrames = 0;
+            return;
+        }
     }
 
     if (sIdleFrames < SPEAK_IDLE_FRAMES) {
