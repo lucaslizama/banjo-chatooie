@@ -5,14 +5,15 @@
 # Unique ID of this mod. Must never collide with another mod's ID.
 id = "lucas_banjo_chatooie"
 
-version = "0.1.0"
+version = "0.2.0"
 
 display_name = "Banjo-Chatooie (Beta)"
 
 description = """
-BETA. This works, but no real stream has run it yet, and the channel point \
-feature has only been proven against Twitch's mock API, never a live account. \
-Expect rough edges and please report what breaks.
+BETA, with a known crash. The game still crashes after roughly ten minutes \
+with everything enabled; it is not diagnosed yet. Nothing is corrupted, but you \
+will lose unsaved progress. The !say command and the overlay have both had long \
+clean runs if you would rather avoid it.
 
 Shows your Twitch chat on screen while you play.
 

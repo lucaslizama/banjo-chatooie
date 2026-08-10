@@ -1,66 +1,75 @@
-**Beta.** Tested by two people on one machine and never on a live stream.
-Channel points have been driven end to end through Twitch's official mock API and
-work in game, but have never talked to a live Twitch account, so signing in and
-creating the reward for real are unproven. Bug reports are the point of this
-release.
+**Beta.** Much more functional than 0.1.0, and one known crash remains. Read the
+last two sections before installing.
 
-Puts your Twitch chat into Banjo-Kazooie: Recompiled. Messages scroll in a panel
-in the corner, and characters from the game can read them aloud in the game's own
-text boxes, with the right portrait and the right voice.
-
-Someone in chat types:
+Chat appears in a panel in the corner, and characters from the game can read
+messages aloud in Banjo-Kazooie's own text boxes, with the right portrait and the
+right voice.
 
     !say mumbo: hello banjo
 
-and Mumbo says it. Around fifty characters are available.
+## New since 0.1.0
+
+**Story dialogue now wins.** An NPC or a cutscene closes a chat box that is in
+the way, instead of waiting behind it, and the interrupted message is spoken
+afterwards rather than lost.
+
+**Chat can no longer take the game down.** Several inputs used to crash or hang
+it outright, all of which are now handled:
+
+- accented letters, which crashed the game the moment anyone typed one
+- a word longer than the text box, which sent the game's own line-break scan off
+  the front of the string
+- emoji, Japanese and anything else the 1998 font cannot draw, which produced an
+  empty box that wedged every later conversation
+- text boxes left open across a map transition
+- messages truncated mid-character, which handed the interface invalid UTF-8
+
+**Channel point redemptions**, through a small helper script. Optional, and
+described in `helper/README.md`.
+
+**An overlay toggle**, so you can have the in-game text boxes without the corner
+panel. Plus a queue that holds messages during cutscenes rather than dropping
+them, and a channel field that waits until you have finished typing.
+
+## Known crash
+
+The game still crashes after roughly ten minutes with the mod fully active. It is
+not diagnosed. It leaves a normal crash, so nothing is corrupted, but you will
+lose unsaved progress.
+
+An evening of bisection cleared the mod loaded but idle, the chat reader, and the
+dialogue injection, each over fifteen minutes of play. The one configuration not
+yet cleared is channel point redemptions, which is where the search resumes.
+
+If you would rather avoid it entirely, `!say` and the overlay have both had long
+clean runs.
+
+## If you installed 0.1.0, do not use its Debug: Boot To Map option
+
+In 0.1.0 that option skipped the file select, which left the game's save state
+blank, and Banjo-Kazooie writes that state out by itself at checkpoints. It
+overwrote a real save with an empty one, and the backup with it. A save was lost
+that way during development.
+
+From 0.2.0 the option redirects the game to a separate scratch save file and
+cannot touch yours. Updating is the fix; the option is off by default either way.
 
 ## Installing
 
-Unzip and copy **both** files into your mods folder:
+Unzip and copy **both** files into your mods folder, next to each other:
 
     banjo_chatooie.nrm
-    banjo_chatooie_native.so
+    banjo_chatooie_native.so     (or .dll on Windows)
 
-On Linux that is `~/.config/BanjoRecompiled/mods`. They must sit next to each
-other: the mod will not load without the native library.
+Linux: `~/.config/BanjoRecompiled/mods`. Then enable the mod and put your channel
+name into **Twitch Channel** in its options.
 
-Then enable the mod in the game's mod menu and put your channel name into
-**Twitch Channel** in its options. That is the only required setting.
-
-## Platform support
-
-This build is **Linux x86-64 only**.
-
-The `.nrm` itself is portable, but the mod also needs a native library built for
-your platform, and it will not load without one. Windows and macOS builds are not
-included because there was no toolchain to cross-compile them. Building from
-source on those platforms produces the same layout with `banjo_chatooie_native.dll` or
-`banjo_chatooie_native.dylib` in place of the `.so`. See `DEVELOPING.md` in the repository.
+Linux and Windows builds are included. macOS is not: cross-compiling for it needs
+the Xcode SDK, which Apple does not permit redistributing, so a build has to
+happen on a Mac.
 
 ## About the connection
 
-The mod logs in to Twitch anonymously and read-only. It never asks for an
-account, a password or a token, it cannot send messages, and it joins only the
-one channel you name. Nothing is stored: messages live in memory and are gone
-once they scroll away.
-
-Channel point redemptions are the one exception. They are not part of Twitch chat
-and need a separate authorisation and a small helper script, both optional and
-both described in `helper/README.md`.
-
-## Known limitations
-
-The game's text boxes are from 1998 and are strict about what they will draw.
-Everything appears in capitals, because the font has no lowercase letters.
-Accented characters are folded to their plain equivalents, so "mañana" reads as
-MANANA. Emoji, Japanese and similar are dropped, and a message made entirely of
-those is skipped rather than opening an empty box.
-
-A handful of character names may summon a neighbouring portrait instead of the
-one you asked for. The game's portrait table has one more entry than the
-community's naming of it, so some labels are off by one. Five names are
-confirmed correct: banjo, kazooie, tooty, grunty and dingpot. If a name gives you
-the wrong face, `!say #87: hello` picks portrait 87 directly.
-
-Channel point features need Twitch Affiliate, since that is what channel points
-require. The `!say` command works on any channel.
+Anonymous and read-only. No account, no password, no token, and it cannot send
+messages or join more than the one channel you name. Channel points are the
+exception and ask for permission separately.
