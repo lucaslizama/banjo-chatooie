@@ -89,9 +89,11 @@ socket_t connect_loopback(int port) {
 
 } // namespace
 
+// Namespace scope for the same reason as twitch::client(); see irc_client.cpp.
+static RedemptionClient g_redemptions;
+
 RedemptionClient& redemptions() {
-    static RedemptionClient instance;
-    return instance;
+    return g_redemptions;
 }
 
 RedemptionClient::~RedemptionClient() {

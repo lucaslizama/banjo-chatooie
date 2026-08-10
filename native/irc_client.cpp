@@ -199,9 +199,19 @@ std::string normalize_channel(const std::string& channel) {
 
 } // namespace
 
+// Namespace scope rather than a function-local static, deliberately.
+//
+// A magic static compiles to a guard byte plus a call to __cxa_guard_acquire
+// through the PLT, and repeated core dumps caught exactly that call landing on
+// the stub's unrelocated file offset, with the load bias never applied. That
+// happened even with the library dlopened RTLD_NOW and linked -z now, which
+// this code cannot explain. What it can do is not depend on it: an object at
+// namespace scope is constructed by the library initialiser at load time, and
+// the accessor becomes a plain address load with no call in it at all.
+static IrcClient g_client;
+
 IrcClient& client() {
-    static IrcClient instance;
-    return instance;
+    return g_client;
 }
 
 IrcClient::~IrcClient() {

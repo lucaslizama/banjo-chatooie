@@ -73,6 +73,9 @@
 // than being thrown away, so this wants enough depth to cover a long cutscene
 // without losing the messages sent at the start of it. At ~204 bytes an entry
 // this is a few KB of BSS, which is cheap next to dropping someone's message.
+// Close entries appended to each box. See build_blob for why more than one.
+#define SPEAK_TERMINATORS 4
+
 #define SPEAK_QUEUE_SIZE 16
 
 typedef struct {
@@ -94,7 +97,7 @@ static int sQueueCount = 0;
 // buffer, which the box then reads from for as long as it is on screen. Building
 // the next message into the same bytes would rewrite live text underneath it.
 // Alternating means the outgoing message's string stays intact.
-#define SPEAK_BLOB_SIZE (4 + 3 + SPEAK_MAX_TEXT + 3)
+#define SPEAK_BLOB_SIZE (1 + 3 * SPEAK_TERMINATORS + 2 + SPEAK_MAX_TEXT + 3 * SPEAK_TERMINATORS + 8)
 static unsigned char sBlobs[2][SPEAK_BLOB_SIZE];
 static int sBlobIndex = 0;
 #define sBlob (sBlobs[sBlobIndex])
@@ -327,12 +330,27 @@ static int build_blob(const char* text, int portrait) {
     int run = 0;
     int j;
 
-    sBlob[i++] = 1;                                        // bottom: one entry
-    sBlob[i++] = 4;                                        // cmd -4 == close
-    sBlob[i++] = 1;
-    sBlob[i++] = 0;
+    // Both boxes are padded with several close entries rather than one.
+    //
+    // DIALOG_STATE_6 scans forward from string_index looking for a command
+    // between -4 and -1, with no bound and no reference to string_count:
+    //
+    //     for (j = string_index[i]; dialog[i][j].cmd < -4 || cmd >= 0; j++)
+    //
+    // With a single close entry, a string_index that has already moved past it
+    // sends that scan off the end of the allocation to spin over whatever
+    // follows, which hangs the game. Extra terminators mean the scan always
+    // lands on one immediately, wherever it starts. They cost four bytes each
+    // and are never reached in normal playback, since the first one closes the
+    // box.
+    sBlob[i++] = SPEAK_TERMINATORS;                        // bottom: closes only
+    for (j = 0; j < SPEAK_TERMINATORS; j++) {
+        sBlob[i++] = 4;                                    // cmd -4 == close
+        sBlob[i++] = 1;
+        sBlob[i++] = 0;
+    }
 
-    sBlob[i++] = 2;                                        // top: text, then close
+    sBlob[i++] = 1 + SPEAK_TERMINATORS;                    // top: text, then closes
     // Setting the high bit keeps the byte out of the 0x01-0x1F range, which
     // loadDialogStrings would otherwise read as a command instead of a portrait.
     sBlob[i++] = (unsigned char)(((portrait - 0x0C) & 0x7F) | 0x80);
@@ -417,9 +435,11 @@ static int build_blob(const char* text, int portrait) {
     // the garbage as the next portrait and string, and leaves that box open
     // forever -- which then blocks every later conversation, because
     // gcdialog_hasCurrentTextId() never goes false again.
-    sBlob[i++] = 4;                                        // cmd -4 == close
-    sBlob[i++] = 1;
-    sBlob[i++] = 0;
+    for (j = 0; j < SPEAK_TERMINATORS; j++) {
+        sBlob[i++] = 4;                                    // cmd -4 == close
+        sBlob[i++] = 1;
+        sBlob[i++] = 0;
+    }
 
     // Spaces on their own are not worth a text box. A message of emoji with a
     // space in it folds down to exactly that, and opening a box containing
