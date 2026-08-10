@@ -44,7 +44,15 @@ else
         #
         # Windows is the opposite case and keeps -static: the game there is not
         # built with mingw, so nothing guarantees its runtime exists.
-        LINK_EXTRA := -Wl,--no-undefined
+        #
+        # -z nodelete keeps this library mapped even if the runtime dlclose()s
+        # it. This library owns threads, and a core dump showed two of them
+        # jumping to tiny garbage addresses at once, one inside the singleton
+        # accessor and one inside the reader loop, which is what unmapping code
+        # out from under running threads looks like. Staying mapped costs a few
+        # dozen KB for the life of the process and removes that whole class of
+        # failure.
+        LINK_EXTRA := -Wl,--no-undefined -Wl,-z,nodelete
     endif
 endif
 
