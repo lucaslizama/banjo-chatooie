@@ -36,7 +36,11 @@ static int sLastState = -1;
 static int sHideCommands = 1;
 static int sOverlayReady = 0;
 static int sOverlayEnabled = 1;
-static int sOverlayVisible = -1;   // -1 so the first apply always acts
+// A freshly created context is not shown, so this starts at 0 rather than at a
+// "don't know yet" sentinel. Getting that wrong meant the first apply could try
+// to hide a context that had never been shown, which the UI system reports as
+// "Attemped to hide a context that isn't shown".
+static int sOverlayVisible = 0;
 
 // Values of the "speak_trigger" config option. These must stay in the same order
 // as the `options` list in mod.toml -- the runtime returns the chosen index.

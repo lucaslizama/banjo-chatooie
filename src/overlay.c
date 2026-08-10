@@ -242,14 +242,21 @@ void overlay_set_status(const char* text) {
     recompui_close_context(sContext);
 }
 
+// The UI system tracks which contexts are shown and complains if asked to hide
+// one that isn't, so these keep their own flag rather than trusting the caller
+// to have paired the calls correctly.
+static int sShown = 0;
+
 void overlay_show(void) {
-    if (sContext != RECOMPUI_NULL_CONTEXT) {
+    if (sContext != RECOMPUI_NULL_CONTEXT && !sShown) {
         recompui_show_context(sContext);
+        sShown = 1;
     }
 }
 
 void overlay_hide(void) {
-    if (sContext != RECOMPUI_NULL_CONTEXT) {
+    if (sContext != RECOMPUI_NULL_CONTEXT && sShown) {
         recompui_hide_context(sContext);
+        sShown = 0;
     }
 }
