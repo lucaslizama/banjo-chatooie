@@ -2,20 +2,21 @@
 
 A mod for Banjo-Kazooie: Recompiled that puts your Twitch chat into the game.
 
-**This is a beta, and there is a known crash.** With everything enabled the game
-tends to crash after roughly ten minutes. It is an ordinary crash, so nothing is
-corrupted and your save file is not touched, but you lose unsaved progress.
+**This is a beta.** It is much more solid than 0.2.0: the crash that made that
+version hard to recommend has been found and fixed. It was not in the mod at all --
+the build script installed files by overwriting them while the game had them open,
+which pulled a library out from under a running process. That only ever affected
+people building from source, so if you installed 0.2.0 from a release or through
+the mod manager, you were not hitting it.
 
-It has not been diagnosed. What is known: with the mod loaded but idle, with chat
-running, and with characters speaking, the game ran fifteen minutes or more each
-time without trouble. The crash has only shown up with channel point redemptions
-active, which is where the search continues. If you would rather avoid it, the
-`!say` command and the corner panel have both had long clean runs.
+Two runs since the fix have gone an hour and half an hour with a message every few
+seconds and no crash, against about ten minutes before it. Nothing is corrupted if
+it does crash, and your save file is not touched.
 
-Otherwise it has been tested by two people on one machine and never on a live
-stream, and the channel points feature has only ever talked to Twitch's mock
-server, never a real account, so signing in and creating the reward for real are
-unproven. Please say what goes wrong.
+Still honest about what is untested: nobody has run this on a live stream, and the
+channel points feature has only ever talked to Twitch's mock server, never a real
+account, so signing in and creating the reward for real are unproven. Please say
+what goes wrong.
 
 Two things happen with an incoming message. It scrolls in a small panel in the
 corner of the screen, and, if you want, a character from the game reads it aloud
@@ -185,9 +186,14 @@ read from the game's own portrait table now, so they should all be right, and a
 wrong one is worth knowing about. `!say #<number>: test` will find the right one
 in the meantime.
 
-If the game crashes after about ten minutes, that is the known crash in the note
-at the top, not something you did. Turning **Characters Speak On** away from
-`Channel point reward` is the configuration that has held up longest.
+If the game crashes, please report it, with roughly how long you had been playing
+and which **Characters Speak On** setting you were using. The crash that dogged
+0.2.0 is fixed, so a crash now is something new and worth hearing about. It was
+never a risk to your save file and still is not.
+
+If you build the mod yourself, make sure you are not installing over a copy the
+game currently has open -- that was the 0.2.0 crash, and `DEVELOPING.md` explains
+it.
 
 ## Building it yourself
 

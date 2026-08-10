@@ -1,5 +1,5 @@
-**Beta.** Much more functional than 0.1.0, and one known crash remains. Read the
-last two sections before installing.
+**Beta.** Every character now draws the face you asked for, and the crash that
+made 0.2.0 hard to recommend has been found.
 
 Chat appears in a panel in the corner, and characters from the game can read
 messages aloud in Banjo-Kazooie's own text boxes, with the right portrait and the
@@ -7,69 +7,63 @@ right voice.
 
     !say mumbo: hello banjo
 
-## New since 0.1.0
+## The crash is fixed
 
-**Story dialogue now wins.** An NPC or a cutscene closes a chat box that is in
-the way, instead of waiting behind it, and the interrupted message is spoken
+It was never in the mod. The build script installed the mod by overwriting the
+files in place while the game had them open, which rewrote a library underneath a
+running process. The game then called into an address that no longer held
+anything and died, usually within about ten minutes of a rebuild.
+
+That only ever happened to people building from source. Installing a release, or
+using the Thunderstore mod manager, never touches a file the game is holding
+open, so if that is how you installed 0.2.0 you were not hitting this. If you did
+build it yourself, that is what those crashes were.
+
+## Every character now draws who you asked for
+
+The portrait numbers came from a community-maintained list that turned out to be
+one entry short, so some names drew their neighbour instead. They are now read
+from the game's own portrait table.
+
+Three were plainly wrong. Asking for **Klungo** got you a gift-wrapped Christmas
+present. **Lockup** drew Grunty, **Vile** drew Lockup, and **Tooty** drew her
+post-transformation self rather than her usual one.
+
+There are also **23 more characters** to talk to, which were simply missing:
+Croc-Banjo, Sexy Grunty, young Eyrie, Little Lockup, the Tiptup choir member,
+Snorkel, the polar bear cubs, the Click Clock Wood insects, the Freezeezy Peak
+presents and the warp cauldron. Seventy-four names in all, listed in the README.
+
+## Blubber can interrupt a chat box again
+
+He was the only character in the game who could not, because of the way the mod
+borrows one of his dialogue lines to carry its own text. Walking up to him now
+cancels the chat box immediately, and the message that was displaced is spoken
 afterwards rather than lost.
 
-**Chat can no longer take the game down.** Several inputs used to crash or hang
-it outright, all of which are now handled:
+The same borrowing could, under the wrong timing, have him read out a chat message
+instead of his own first-meeting line. That is fixed too, but honestly: it has not
+been reproduced in play, because triggering it needs a save that has not met him
+yet. If you ever see Blubber say something a viewer typed, please report it.
 
-- accented letters, which crashed the game the moment anyone typed one
-- a word longer than the text box, which sent the game's own line-break scan off
-  the front of the string
-- emoji, Japanese and anything else the 1998 font cannot draw, which produced an
-  empty box that wedged every later conversation
-- text boxes left open across a map transition
-- messages truncated mid-character, which handed the interface invalid UTF-8
+## Also
 
-**Channel point redemptions**, through a small helper script. Optional, and
-described in `helper/README.md`.
+A buffer large enough to overflow Banjo-Kazooie's main thread stack was being
+built on that stack every time the channel setting changed. The game's whole main
+loop has 6128 bytes and this wanted 3328 of them. Anything could have come of
+that; nothing good.
 
-**An overlay toggle**, so you can have the in-game text boxes without the corner
-panel. Plus a queue that holds messages during cutscenes rather than dropping
-them, and a channel field that waits until you have finished typing.
+Messages queues no longer allocate memory while the game is running.
 
-## Known crash
+## Not a bug, for the record
 
-The game still crashes after roughly ten minutes with the mod fully active. It is
-not diagnosed. It leaves a normal crash, so nothing is corrupted, but you will
-lose unsaved progress.
+You cannot talk to Brentilda while a chat box is on screen. That is how the
+original game behaves -- it drops her request whenever any text box is up, and
+you can see the same thing during one of Grunty's own random taunts with no mods
+loaded at all. A chat box is simply one more thing that can be in the way.
 
-An evening of bisection cleared the mod loaded but idle, the chat reader, and the
-dialogue injection, each over fifteen minutes of play. The one configuration not
-yet cleared is channel point redemptions, which is where the search resumes.
+## Still untested
 
-If you would rather avoid it entirely, `!say` and the overlay have both had long
-clean runs.
-
-## If you installed 0.1.0, do not use its Debug: Boot To Map option
-
-In 0.1.0 that option skipped the file select, which left the game's save state
-blank, and Banjo-Kazooie writes that state out by itself at checkpoints. It
-overwrote a real save with an empty one, and the backup with it. A save was lost
-that way during development.
-
-From 0.2.0 the option redirects the game to a separate scratch save file and
-cannot touch yours. Updating is the fix; the option is off by default either way.
-
-## Installing
-
-Unzip and copy **both** files into your mods folder, next to each other:
-
-    banjo_chatooie.nrm
-    banjo_chatooie_native.so     (or .dll on Windows)
-
-Linux: `~/.config/BanjoRecompiled/mods`. Then enable the mod and put your channel
-name into **Twitch Channel** in its options.
-
-Linux and Windows builds are included. macOS is not: cross-compiling for it needs
-the Xcode SDK, which Apple does not permit redistributing, so a build has to
-happen on a Mac.
-
-## About the connection
-
-Anonymous and read-only. No account, no password, no token, and it cannot send
-messages or join more than the one channel you name. Channel points are the
-exception and ask for permission separately.
+Nobody has run this on a live stream, and the channel points feature has only
+talked to Twitch's mock server, so signing in and creating the reward for real
+are unproven. Please say what goes wrong.

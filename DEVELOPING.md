@@ -56,20 +56,24 @@ native half, and `tools/RecompModTool` from the
 [N64Recomp releases page](https://github.com/N64Recomp/N64Recomp/releases). That
 last one is gitignored, being a prebuilt binary.
 
-The native library links libstdc++ and libgcc statically, and is built `-fno-plt`
-and linked `-Bsymbolic`, so almost every call it makes is resolved inside it
-rather than through the GOT. That is not about portability. Core dumps repeatedly
-caught calls from this library landing on a PLT stub's unrelocated file offset,
-and although the cause was never found, the fewer indirections there are, the
-fewer places that can happen. The result has zero PLT entries and only libc and
-libm as external dependencies.
+The native library links libstdc++ and libgcc statically, so it does not depend on
+the host's versions. The result has only libc and libm as external dependencies.
+
+It is also built `-fno-plt` and linked `-Bsymbolic`, which leaves it with zero PLT
+entries. **That was done for a reason that turned out to be wrong**, and the note
+is kept so nobody repeats it. Core dumps kept showing calls from this library
+landing on a PLT stub's unrelocated file offset, so the flags were added to remove
+the indirection those calls went through. It changed nothing, because the real
+cause was `cp` rewriting the library under a live mapping, which no link-time
+option has any bearing on. The flags are harmless and can stay, but do not reach
+for them to fix a crash, and do not read "zero PLT entries" as a safety property.
 
 ## Releasing
 
 Bump `version` in `mod.toml`, then push a tag that matches it:
 
 ```
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.3.0 && git push origin v0.3.0
 ```
 
 A GitHub Action builds both platforms and publishes them. It refuses to run if
@@ -93,7 +97,7 @@ Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
 The version must always go up. Thunderstore refuses a version number it has
 already seen, and a GitHub tag would have to be moved, so any change after a
 release means a new number rather than a rebuild of the old one. 0.1.0 and 0.2.0
-are both published; the next one is 0.2.1.
+are both published; the next one is 0.3.0.
 
 There is no macOS archive. Cross-compiling for macOS needs the Xcode SDK, which
 Apple does not permit redistributing, so `.dylib` builds have to happen on a Mac.

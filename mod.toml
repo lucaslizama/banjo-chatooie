@@ -5,7 +5,7 @@
 # Unique ID of this mod. Must never collide with another mod's ID.
 id = "lucas_banjo_chatooie"
 
-version = "0.2.0"
+version = "0.3.0"
 
 display_name = "Banjo-Chatooie (Beta)"
 

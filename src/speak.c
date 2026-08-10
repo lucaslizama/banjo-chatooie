@@ -43,7 +43,7 @@
 // Traces why a queued message is not being spoken. Set to 0 for a release build;
 // it prints one line per change of reason, plus one per queued message, which is
 // quiet enough to leave on while playing.
-#define SPEAK_DEBUG 1
+#define SPEAK_DEBUG 0
 
 // Reasons speak_tick can decline to inject, in the order the guards appear.
 #define BLOCK_NONE          0
