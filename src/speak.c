@@ -596,7 +596,13 @@ void speak_queue(const char* user, const char* text, int default_portrait,
 }
 
 void speak_clear_chat(void) {
-    SpeakRequest kept[SPEAK_QUEUE_SIZE];
+    // Static, not on the stack. Banjo-Kazooie's main thread stack is 0x17F0 --
+    // 6128 bytes for the whole game loop -- and sixteen SpeakRequests is 3328 of
+    // them. Putting that in a frame under mainLoop overflows the stack and
+    // scribbles over whatever is below it. Compacting in place is not an option
+    // either: the ring can wrap, so writing from index zero would clobber
+    // entries not yet read.
+    static SpeakRequest kept[SPEAK_QUEUE_SIZE];
     int count = 0;
     int i;
 

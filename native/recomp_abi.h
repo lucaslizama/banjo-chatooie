@@ -117,11 +117,17 @@ static inline std::string arg_string(uint8_t* rdram, recomp_context* ctx, int in
 
 // Writes a zero-terminated string into a guest buffer, truncating to `capacity`
 // (which includes the terminator).
-static inline void write_string(uint8_t* rdram, uint32_t addr, const std::string& str, size_t capacity) {
+// Takes a plain pointer on purpose. Taking a std::string meant a char array
+// argument built a temporary, which allocates -- on the game thread, in the very
+// call the queues were just made allocation-free for.
+static inline void write_string(uint8_t* rdram, uint32_t addr, const char* str, size_t capacity) {
     if (addr == 0 || capacity == 0) {
         return;
     }
-    size_t len = str.size();
+    size_t len = 0;
+    while (str[len] != '\0') {
+        len++;
+    }
     if (len > capacity - 1) {
         len = capacity - 1;
         // Don't cut a UTF-8 sequence in half -- the UI renderer would show a
