@@ -3,10 +3,11 @@
 A mod for Banjo-Kazooie: Recompiled that puts your Twitch chat into the game.
 
 **This is a beta.** It has been tested by two people on one machine, and never on
-a live stream. The channel points feature in particular has never run against a
-real Twitch account, only against a stand-in. It should not break your game, and
-nothing it does touches your save file, but expect rough edges and please say
-what goes wrong.
+a live stream. The channel points feature works, and has been driven end to end
+through Twitch's own mock API, but it has never talked to a live Twitch account,
+so signing in and creating the reward for real are still unproven. It should not
+break your game, and nothing it does touches your save file, but expect rough
+edges and please say what goes wrong.
 
 Two things happen with an incoming message. It scrolls in a small panel in the
 corner of the screen, and, if you want, a character from the game reads it aloud

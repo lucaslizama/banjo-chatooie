@@ -1,6 +1,8 @@
-**Beta.** Tested by two people on one machine and never on a live stream. The
-channel points feature has only ever been tested against a stand-in, never a real
-Twitch account. Bug reports are the point of this release.
+**Beta.** Tested by two people on one machine and never on a live stream.
+Channel points have been driven end to end through Twitch's official mock API and
+work in game, but have never talked to a live Twitch account, so signing in and
+creating the reward for real are unproven. Bug reports are the point of this
+release.
 
 Puts your Twitch chat into Banjo-Kazooie: Recompiled. Messages scroll in a panel
 in the corner, and characters from the game can read them aloud in the game's own

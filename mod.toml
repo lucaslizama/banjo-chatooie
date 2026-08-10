@@ -11,8 +11,8 @@ display_name = "Banjo-Chatooie (Beta)"
 
 description = """
 BETA. This works, but no real stream has run it yet, and the channel point \
-feature has never been tested against a live Twitch account. Expect rough edges \
-and please report what breaks.
+feature has only been proven against Twitch's mock API, never a live account. \
+Expect rough edges and please report what breaks.
 
 Shows your Twitch chat on screen while you play.
 

@@ -99,6 +99,20 @@ sqlite3 ~/.config/twitch-cli/eventCache.db \
 
 Setting them back to `UNFULFILLED` the same way lets you replay a test.
 
+### What the mock does not cover
+
+Driving redemptions through the mock exercises the polling loop, the socket to
+the mod, and the game rendering them. It does not exercise:
+
+- the OAuth device flow, since the mock mints tokens its own way
+- creating the reward, since testing uses one the mock generated
+- looking the broadcaster up from the token
+- refreshing an expired token
+- real rate limits
+
+Those paths are written but unproven, and are the most likely place for a first
+run against a live account to go wrong.
+
 ## Why polling instead of EventSub
 
 `GET /helix/channel_points/custom_rewards/redemptions` needs only HTTPS and JSON,
