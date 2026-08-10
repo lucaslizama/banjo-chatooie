@@ -64,8 +64,34 @@ echo "       $LIB"
 
 if [ "$DEPLOY" -eq 1 ]; then
     mkdir -p "$MODS_DIR"
-    cp "$NRM" "$MODS_DIR/"
-    cp "$LIB" "$MODS_DIR/"
+
+    # Deploy by rename, never by overwriting in place.
+    #
+    # `cp` opens the destination O_TRUNC and rewrites the SAME inode. The game
+    # mmaps the native library from that inode, so overwriting it while the game
+    # is running rewrites the file under a live mapping: clean pages get dropped
+    # and re-faulted from the new contents, and pages past the temporary EOF
+    # fault outright. That is what crashed run 4c -- the .so was rewritten at
+    # 13:51:49 and the game took a SIGSEGV at 13:51:50, rip=0, having called
+    # through a relocation slot that read back as the file's own zeros.
+    #
+    # A rename swaps in a new inode instead. A running game keeps the old one
+    # mapped, intact, until it exits.
+    deploy() {
+        local src="$1" dest="$MODS_DIR/$(basename "$1")"
+        cp "$src" "$dest.tmp$$"
+        mv -f "$dest.tmp$$" "$dest"
+    }
+
+    # Still worth saying out loud: the running game keeps the version it started
+    # with, so a deploy mid-session is not the build under test.
+    if pgrep -f BanjoRecompiled >/dev/null 2>&1; then
+        echo "NOTE: the game is running. It keeps the previously deployed files"
+        echo "      mapped until it exits -- restart it to pick this build up."
+    fi
+
+    deploy "$NRM"
+    deploy "$LIB"
     echo "Deployed to: $MODS_DIR/$(basename "$NRM")"
     echo "             $MODS_DIR/$(basename "$LIB")"
 fi

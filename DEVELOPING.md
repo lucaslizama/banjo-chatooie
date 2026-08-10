@@ -33,8 +33,23 @@ through a loopback socket instead.
 
 ```
 ./build.sh            # builds both halves and packages the .nrm
-./build.sh --deploy   # also copies both files into ~/.config/BanjoRecompiled/mods
+./build.sh --deploy   # also installs both files into ~/.config/BanjoRecompiled/mods
 ```
+
+`--deploy` installs by writing a temp file and renaming it, never by overwriting
+in place, and that is not a stylistic preference. `cp` opens the destination
+O_TRUNC and rewrites the same inode, and the game mmaps the native library from
+that inode. Overwriting it while the game is running rewrites the file under a
+live mapping: clean pages get dropped and re-faulted from the new contents, and
+pages past the temporary EOF fault outright. That produced a stream of
+inexplicable segfaults with `rip = 0` at whatever indirect call the process
+reached next, and cost about two sessions of debugging before the timestamps gave
+it away -- the .so was rewritten at 13:51:49 and the game died at 13:51:50. A
+rename swaps in a new inode instead, so a running game keeps the old one intact
+until it exits.
+
+Which also means a deploy mid-session is not the build you are testing. The
+script says so when it notices the game running; restart it to pick up a build.
 
 You need `clang` and `ld.lld` for the MIPS half, a host C++17 compiler for the
 native half, and `tools/RecompModTool` from the

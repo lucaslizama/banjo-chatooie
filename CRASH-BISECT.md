@@ -248,14 +248,51 @@ null pointer, but frame #3 is `recompui::Element::set_text` and frame #1 does no
 resolve against the current .so. Same signature, different path -- suggestive of
 one mechanism, not proof of it. Do not write that down as settled.
 
+### CAUSE FOUND: the build script was shooting the running game
+
+`build.sh --deploy` used `cp`, which opens the destination O_TRUNC and rewrites
+the SAME inode. The game mmaps the native library from that inode. Overwriting it
+mid-session rewrites the file under a live mapping: clean pages are dropped and
+re-faulted from the new contents, and pages past the temporary EOF fault
+outright. A relocation slot read back as the file's own zeros, because that is
+what `.got` contains on disk before a loader fills it in.
+
+The timing is conclusive for run 4c:
+
+    deployed .so mtime   13:51:49.111
+    SIGSEGV, rip=0       13:51:50
+    inode 4135561 both before and after -- same file, rewritten in place
+
+So the crash was self-inflicted by the development loop, not a defect that ships
+to players. It explains what never added up: why it was never reproducible, why
+it landed at a different call site each time (whichever indirect call the process
+reached first afterwards), and why -fno-plt / -Bsymbolic made no difference --
+neither has any bearing on the file changing underneath the mapping.
+
+Fixed by deploying through a temp file and `mv`, which swaps in a NEW inode and
+leaves a running game's mapping intact. Verified: after the change a deploy
+produced inode 4142243 while the live game kept 4135561 mapped and carried on
+speaking, where before it would have died within a second. build.sh also warns
+that a running game keeps the files it started with, so a mid-session deploy is
+not the build under test.
+
+Caveat on the analysis above: the disassembly attributing the faulting call to
+`pthread_mutex_lock` was read from the .so as it existed afterwards, which is not
+necessarily the bytes that ran. Treat that attribution as unreliable. `rip = 0`
+and the zeroed relocation page are solid.
+
+Proven for run 4c. For the earlier crashes it is the leading candidate rather
+than established -- but every one of them happened during a session of repeated
+rebuild-and-redeploy, so the same mechanism was available each time.
+
 ### Next step
 
-A watchdog thread inside the native library: once a second, read our own
-`/proc/self/maps` line and a saved copy of the expected libc pointer, and print
-the moment either changes. Reading maps is safe even if the page is gone. That
-pins down WHEN the GOT dies relative to game events (map load, save, heap
-churn), which is the one thing none of the cores can show, since they only ever
-show the aftermath.
+Re-run the ladder without deploying mid-session, and see whether the crash
+exists at all any more. If it does, the watchdog idea is still the right tool: a
+thread in the native library that once a second re-reads our own
+`/proc/self/maps` line and a saved copy of an expected libc pointer, printing the
+moment either changes. Reading maps stays safe even if the page is gone, and it
+would show WHEN the mapping dies rather than only the aftermath.
 
 Also: `feed.py` in the scratchpad is a deterministic stand-in for the redemption
 helper -- same wire format, same port, our messages at our rate. Use it instead
