@@ -105,3 +105,15 @@ Carrier-asset diagnosis confirmed cleanly: throwing gold to Blubber DOES cancel
 the chat box, while his first-meeting line does not. Same NPC, different asset
 id, different behaviour -- so it is the id, not the character. Only 0xA0B is
 affected, which is exactly our carrier.
+
+
+## Queued for 0.2.1
+
+- Brentilda's dialogue is dropped when a chat box is up. Restore the deferred
+  re-issue removed in 4af2076; the hang it once caused is understood and fixed.
+- Blubber's first-meeting line does not yield, because it IS the carrier asset
+  and the hook identifies our own calls by text id. Use an explicit flag instead.
+- stop() calls notify_all() without holding wake_mutex_, so a missed wakeup can
+  leave the game thread waiting out a backoff of up to 60 seconds.
+- Run 4: channel point redemptions, the only configuration the bisect has not
+  cleared, and the one every crash so far occurred under.

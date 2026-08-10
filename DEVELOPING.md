@@ -72,6 +72,11 @@ vendored recomp headers and submodules.
 
 Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
 
+The version must always go up. Thunderstore refuses a version number it has
+already seen, and a GitHub tag would have to be moved, so any change after a
+release means a new number rather than a rebuild of the old one. 0.1.0 and 0.2.0
+are both published; the next one is 0.2.1.
+
 There is no macOS archive. Cross-compiling for macOS needs the Xcode SDK, which
 Apple does not permit redistributing, so `.dylib` builds have to happen on a Mac.
 Running `./release.sh` there produces one from the same source.
