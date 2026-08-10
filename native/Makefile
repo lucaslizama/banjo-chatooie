@@ -35,8 +35,16 @@ else
         LIB_EXT := .dylib
     else
         LIB_EXT := .so
-        # Players won't have a matching libstdc++ next to the game, so link it in.
-        LINK_EXTRA := -static-libstdc++ -static-libgcc -Wl,--no-undefined
+        # Deliberately NOT -static-libstdc++ here. The game is itself a C++
+        # program and already has libstdc++ and libgcc loaded, so a static copy
+        # in this library means two C++ runtimes in one process. That is a real
+        # hazard around std::mutex, std::thread and TLS, which this library uses
+        # on every frame, and it is not worth it for a dependency the host
+        # process guarantees is present.
+        #
+        # Windows is the opposite case and keeps -static: the game there is not
+        # built with mingw, so nothing guarantees its runtime exists.
+        LINK_EXTRA := -Wl,--no-undefined
     endif
 endif
 
