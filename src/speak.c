@@ -456,6 +456,11 @@ void speak_queue(const char* user, const char* text, int default_portrait, int s
     sQueueCount++;
 }
 
+void speak_clear(void) {
+    sQueueHead = 0;
+    sQueueCount = 0;
+}
+
 void speak_tick(void) {
     SpeakRequest* req;
 

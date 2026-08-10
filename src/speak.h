@@ -14,6 +14,11 @@ void speak_queue(const char* user, const char* text, int default_portrait, int s
 // state that can show a dialogue box and no other dialogue is up.
 void speak_tick(void);
 
+// Drops everything still waiting to be spoken. Used when the channel changes,
+// so messages from the channel you just left don't keep arriving afterwards.
+// A box already on screen is not retracted; the game owns that one.
+void speak_clear(void);
+
 // Looks up a character name (case-insensitive) in the portrait table.
 // Returns the GcZoomboxSprite id, or -1 if the name isn't a known character.
 int speak_lookup_portrait(const char* name);

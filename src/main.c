@@ -258,6 +258,11 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         } else {
             twitch_chat_stop();
         }
+        // The native side drops its own queue on a channel change; this drops
+        // ours, so characters don't carry on reading out the channel you left.
+        // The overlay clears itself, because the connection state change below
+        // replaces its contents with a status line.
+        speak_clear();
         sLastState = -1;
     }
 
