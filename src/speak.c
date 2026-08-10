@@ -109,10 +109,6 @@ extern struct {
     s32 index;
 } s_dialogBin;
 extern s32 code94620_func_8031B5B0(void);
-extern void func_803114D0(void);        // starts closing the current dialogue
-extern s32 gcdialog_showDialogConditional(s32 text_id, s32 arg1, f32* pos,
-        ActorMarker* marker, void (*callback)(ActorMarker*, s32, s32),
-        void (*arg5)(ActorMarker*, s32, s32), s32 arg6);
 extern s32 gcdialog_hasCurrentTextId(void);
 extern s32 getGameMode(void);
 extern s32 map_get(void);
@@ -147,74 +143,20 @@ static int is_safe_map(s32 map) {
 
 static int sIdleFrames = 0;
 
-// True while a box we injected is on screen, plus a copy of what it was saying.
-// If the game interrupts us, the message goes back on the queue rather than being
-// lost, so it gets read out once the story text is done.
-static int sOursShowing = 0;
-static SpeakRequest sShowing;
-
-// Puts a request back at the front of the queue, so it keeps its place in order.
-static void requeue_front(const SpeakRequest* req) {
-    if (sQueueCount >= SPEAK_QUEUE_SIZE) {
-        return;         // queue is full of newer chat; let this one go
-    }
-    sQueueHead = (sQueueHead + SPEAK_QUEUE_SIZE - 1) % SPEAK_QUEUE_SIZE;
-    sQueue[sQueueHead] = *req;
-    sQueueCount++;
-}
-
-// The game's own dialogue always wins. If it asks for one while ours is up, its
-// request would just return 0 and be dropped, and any script waiting on that box
-// waits forever -- which is a softlock, reachable from something as ordinary as
-// a Bottles tutorial. Instead we take its arguments, close our box, and re-issue
-// the request for it once the dialogue system is free.
-static struct {
-    int pending;
-    s32 text_id;
-    s32 arg1;
-    f32 position[3];
-    int has_position;
-    ActorMarker* marker;
-    void (*callback)(ActorMarker*, s32, s32);
-    void (*arg5)(ActorMarker*, s32, s32);
-    s32 arg6;
-} sDeferred;
-
-RECOMP_HOOK("gcdialog_showDialogConditional") void speak_yield_to_game(
-        s32 text_id, s32 arg1, f32* pos, ActorMarker* marker,
-        void (*callback)(ActorMarker*, s32, s32),
-        void (*arg5)(ActorMarker*, s32, s32), s32 arg6) {
-    if (!sOursShowing || text_id == SPEAK_CARRIER_ASSET || sDeferred.pending) {
-        return;
-    }
-    if (!gcdialog_hasCurrentTextId()) {
-        return;             // nothing in the way; the game's call will succeed
-    }
-
-    sDeferred.pending = 1;
-    sDeferred.text_id = text_id;
-    sDeferred.arg1 = arg1;
-    sDeferred.marker = marker;
-    sDeferred.callback = callback;
-    sDeferred.arg5 = arg5;
-    sDeferred.arg6 = arg6;
-
-    // Copy the position rather than keeping the pointer, which may be a
-    // temporary belonging to whatever actor is talking.
-    sDeferred.has_position = (pos != NULL);
-    if (pos != NULL) {
-        sDeferred.position[0] = pos[0];
-        sDeferred.position[1] = pos[1];
-        sDeferred.position[2] = pos[2];
-    }
-
-    // Put ours back so it is spoken after the game has had its turn.
-    requeue_front(&sShowing);
-    sOursShowing = 0;
-
-    recomp_printf("[twitch-chat] yielding to game dialogue %04X\n", (int)text_id);
-    func_803114D0();        // begin closing ours
-}
+// Deliberately no attempt to interrupt the game's own dialogue.
+//
+// An earlier version hooked gcdialog_showDialogConditional and, when the game
+// asked for a box while ours was up, closed ours through func_803114D0 and
+// re-issued the game's request afterwards. That hung during a Bottles tutorial.
+// DIALOG_STATE_6, which that close path enters, walks the entry list forward
+// with no bound, stopping only on a command between -4 and -1, and driving that
+// state machine from outside with a synthesised blob is far more delicate than
+// it looks.
+//
+// What keeps the two apart instead is patience: three seconds of a completely
+// idle dialogue system before injecting anything. If the game does want to talk
+// while our box is up, its request is dropped, which costs one line of NPC
+// dialogue and no longer wedges anything.
 
 typedef struct {
     const char* name;
@@ -548,28 +490,8 @@ void speak_tick(void) {
     // D_8027A130 == 3 is the in-game state that mainLoop runs the world update
     // in; anything else (boot, file select, cutscene transitions) has no
     // dialogue system to talk to.
-    if (gcdialog_hasCurrentTextId()) {
-        sIdleFrames = 0;
-        return;
-    }
-
-    // Ours is gone the moment the dialogue system reports nothing showing.
-    sOursShowing = 0;
-
-    // The game asked for a box while ours was up. Give it what it asked for,
-    // before considering anything of ours.
-    if (sDeferred.pending) {
-        sDeferred.pending = 0;
-        gcdialog_showDialogConditional(sDeferred.text_id, sDeferred.arg1,
-                sDeferred.has_position ? sDeferred.position : NULL,
-                sDeferred.marker, sDeferred.callback, sDeferred.arg5,
-                sDeferred.arg6);
-        sIdleFrames = 0;
-        return;
-    }
-
     if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL ||
-        !is_safe_map(map_get())) {
+        gcdialog_hasCurrentTextId() || !is_safe_map(map_get())) {
         sIdleFrames = 0;
         return;
     }
@@ -603,8 +525,6 @@ void speak_tick(void) {
     }
 
     sIdleFrames = 0;
-    sOursShowing = 1;
-    sShowing = *req;
 
     // The box now holds pointers into the buffer we just filled, so the next
     // message must be built into the other one.
