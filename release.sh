@@ -17,12 +17,19 @@ cd "$(dirname "$0")"
 
 PUBLISH=0
 WINDOWS=0
+THUNDERSTORE=0
 for arg in "$@"; do
     case "$arg" in
-        --publish) PUBLISH=1 ;;
-        --windows) WINDOWS=1 ;;
+        --publish)     PUBLISH=1 ;;
+        --windows)     WINDOWS=1 ;;
+        --thunderstore) THUNDERSTORE=1; WINDOWS=1 ;;   # one package covers both
     esac
 done
+
+# Package identity on Thunderstore. Letters, digits and underscores only.
+TS_NAME="TwitchChatIntegration"
+TS_WEBSITE="https://github.com/lucaslizama/bk-twitch-chat-integration"
+TS_DESCRIPTION="Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes with their portraits and voices. Chat picks who speaks."
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
 if [ -z "$VERSION" ]; then
@@ -110,10 +117,70 @@ if you want channel point redemptions.
 EOF
 }
 
+# Thunderstore packages are laid out flat at the zip root, and the mod manager
+# extracts them straight into the mods folder. That suits this mod: the runtime
+# picks its native library by platform extension, so shipping the .so and the
+# .dll side by side means one package works on both.
+package_thunderstore() {
+    local name="twitch-chat-integration-thunderstore-v${VERSION}"
+    local stage="dist/$name"
+
+    echo "==> staging $name"
+    rm -rf "$stage" "dist/$name.zip"
+    mkdir -p "$stage/helper"
+
+    cp build/twitch_chat_integration.nrm "$stage/"
+    cp build/native/twitch_chat.so "$stage/"
+    cp build/native-windows/twitch_chat.dll "$stage/"
+    cp README.md LICENSE "$stage/"
+    cp assets/thunderstore-icon.png "$stage/icon.png"
+    cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
+
+    cat > "$stage/manifest.json" <<EOF
+{
+    "name": "${TS_NAME}",
+    "version_number": "${VERSION}",
+    "website_url": "${TS_WEBSITE}",
+    "description": "${TS_DESCRIPTION}",
+    "dependencies": []
+}
+EOF
+
+    # Everything below is rejected at upload time rather than at build time, so
+    # it is much cheaper to catch here.
+    local problems=0
+    if ! printf '%s' "$TS_NAME" | grep -qE '^[A-Za-z0-9_]+$'; then
+        echo "  name must be letters, digits and underscores only" >&2; problems=1
+    fi
+    if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "  version must be major.minor.patch, got '$VERSION'" >&2; problems=1
+    fi
+    if [ "${#TS_DESCRIPTION}" -gt 250 ]; then
+        echo "  description is ${#TS_DESCRIPTION} characters, limit is 250" >&2; problems=1
+    fi
+    if [ "$(magick identify -format '%wx%h' "$stage/icon.png" 2>/dev/null)" != "256x256" ]; then
+        echo "  icon.png must be exactly 256x256" >&2; problems=1
+    fi
+    python3 -c "import json,sys; json.load(open('$stage/manifest.json'))" || problems=1
+    [ "$problems" -eq 0 ] || { echo "Thunderstore package would be rejected." >&2; exit 1; }
+
+    # Zipped from inside, so the files land at the archive root with no wrapper
+    # directory. Thunderstore requires that.
+    (cd "$stage" && zip -qr "../$name.zip" .)
+    rm -rf "$stage"
+
+    echo "dist/$name.zip  ($(du -h "dist/$name.zip" | cut -f1))"
+    echo "  upload at https://thunderstore.io/c/banjo-recompiled/create/"
+}
+
 echo
-package "$PLATFORM" "$LIB" "build/native"
-if [ "$WINDOWS" -eq 1 ]; then
-    package "windows-x86_64" "twitch_chat.dll" "build/native-windows"
+if [ "$THUNDERSTORE" -eq 1 ]; then
+    package_thunderstore
+else
+    package "$PLATFORM" "$LIB" "build/native"
+    if [ "$WINDOWS" -eq 1 ]; then
+        package "windows-x86_64" "twitch_chat.dll" "build/native-windows"
+    fi
 fi
 
 if [ "$PUBLISH" -eq 1 ]; then

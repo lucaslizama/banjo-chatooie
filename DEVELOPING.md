@@ -61,6 +61,7 @@ The same thing can be done locally:
 ./release.sh                        # host archive only
 ./release.sh --windows              # also cross-compiles the DLL
 ./release.sh --windows --publish    # and uploads both to the matching release
+./release.sh --thunderstore         # one package for Thunderstore instead
 ```
 
 Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
@@ -213,3 +214,24 @@ this library needs: the `recomp_context` layout, the rdram address translation
 with its byteswap, and argument and return helpers. librecomp is not distributed
 as an SDK, so there is nothing to include. The definitions came from
 `N64Recomp/include/recomp.h` and `librecomp/include/librecomp/helpers.hpp`.
+
+## Thunderstore
+
+Thunderstore is where Banjo-Kazooie: Recompiled players actually look for mods,
+and its mod manager installs them, which saves explaining mods folders to anyone.
+
+```
+./release.sh --thunderstore
+```
+
+builds one package covering both platforms. That works because the runtime picks
+its native library by platform extension, so shipping `twitch_chat.so` and
+`twitch_chat.dll` side by side lets each machine take the one it needs.
+
+Thunderstore packages are laid out flat at the archive root, with `manifest.json`,
+`icon.png` (exactly 256x256) and `README.md` required. The script checks the name
+pattern, the version shape, the description length and the icon size before
+zipping, because all of those are otherwise only rejected once you upload.
+
+Upload at https://thunderstore.io/c/banjo-recompiled/create/. That part needs an
+account and a team, and has to be done by hand the first time.
