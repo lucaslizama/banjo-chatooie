@@ -10,16 +10,21 @@ version = "0.3.0"
 display_name = "Banjo-Chatooie (Beta)"
 
 description = """
-BETA, with a known crash. The game still crashes after roughly ten minutes \
-with everything enabled; it is not diagnosed yet. Nothing is corrupted, but you \
-will lose unsaved progress. The !say command and the overlay have both had long \
-clean runs if you would rather avoid it.
+Shows your Twitch chat on screen while you play, and lets characters from the \
+game read messages aloud in Banjo-Kazooie's own text boxes, with their portraits \
+and their voices. Chat picks who speaks.
 
-Shows your Twitch chat on screen while you play.
+    !say mumbo: hello banjo
 
 Set your channel name in this mod's options and chat appears in the corner of \
-the screen. The connection is anonymous and read-only -- the mod never asks for \
-a Twitch account, password or OAuth token, and it cannot send messages.
+the screen. Seventy-four characters can be asked for by name.
+
+The connection is anonymous and read-only -- the mod never asks for a Twitch \
+account, password or OAuth token, and it cannot send messages. Channel point \
+redemptions are optional and ask for permission separately.
+
+Beta: tested by two people, never on a live stream. The crash present in 0.2.0 \
+is fixed.
 
 Requires the banjo_chatooie_native library to sit next to this mod's .nrm file \
 in the mods folder.
@@ -196,5 +201,10 @@ mod_filename = "banjo_chatooie"
 func_reference_syms_file = "BanjoRecompSyms/bk.us.rev0.syms.toml"
 data_reference_syms_files = [ "BanjoRecompSyms/bk.us.rev0.datasyms.toml" ]
 
-# Nothing to bundle -- the native library is deployed beside the .nrm, not inside it.
-additional_files = [ ]
+# thumb.png is the mod menu's thumbnail. The runtime looks for that exact name
+# inside the .nrm (it accepts thumb.dds too), and additional_files flattens paths,
+# so the file has to be named thumb.png at its source for it to land correctly.
+# The same image is copied to icon.png when packaging for Thunderstore.
+#
+# The native library is NOT bundled here -- it is deployed beside the .nrm.
+additional_files = [ "assets/thumb.png" ]

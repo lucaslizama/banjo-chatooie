@@ -153,7 +153,7 @@ package_thunderstore() {
     cp build/native/banjo_chatooie_native.so "$stage/"
     cp build/native-windows/banjo_chatooie_native.dll "$stage/"
     cp README.md LICENSE NOTICE "$stage/"
-    cp assets/thunderstore-icon.png "$stage/icon.png"
+    cp assets/thumb.png "$stage/icon.png"
     cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
 
     cat > "$stage/manifest.json" <<EOF
