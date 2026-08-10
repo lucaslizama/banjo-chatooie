@@ -83,14 +83,14 @@ Every name chat can use, all case-insensitive:
 | | flibbit | juju | snippet |
 | | zubba | yumyum | nipper |
 | | | leaky | blubber |
-| | | gloop | conga |
+| | | gloop | conga ✔ |
 | | | | chimpy |
 
 The Jinjos: `jinjo` (yellow), `yellowjinjo`, `greenjinjo`, `bluejinjo`,
 `pinkjinjo`, `orangejinjo`.
 
-Five of these are confirmed to draw who they say they do: banjo, kazooie, tooty,
-grunty and dingpot. The rest come from the community's names for the game's
+Six of these are confirmed to draw who they say they do: banjo, kazooie, tooty,
+grunty, dingpot and conga. The rest come from the community's names for the game's
 portraits and a few are probably off by one, so you may get a neighbour instead
 of the character you asked for. If you would rather pick by number,
 `!say #87: hello` uses portrait 87 directly, and any number from 12 to 106 works.
