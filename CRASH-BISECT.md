@@ -153,24 +153,42 @@ Fixed and committed:
   Also write_string took a std::string, so the new char arrays built a temporary
   per message -- an allocation on the game thread. Takes const char* now.
 
-### OPEN REGRESSION, the thing to fix first
+### The "speaking regression" was phantom -- CLOSED
 
-Characters no longer speak AT ALL in the current build. Confirmed with
-Characters Speak On = Every message on a busy channel: nothing appears. Run 3
-(yesterday, commit 4af2076 era) had boxes working, so one of the three commits
-above broke it. The redemption path is NOT specifically at fault; speaking is
-broken for every trigger.
+There was no regression. Characters not speaking was the test channel being
+silent, not the code failing.
 
-Verified NOT the cause:
-- the helper delivers correctly (socket tapped alongside the mod, well-formed
-  lines seen on the wire)
-- redemptions reach the native queue and are marked FULFILLED
+The channel under test was `caseoh_`, which is enormous but was offline, so its
+chat was nearly dead. Trigger = Every message on a channel saying nothing looks
+exactly like a broken mod. Two things kept the mistake alive: the overlay had
+been switched off, so there was no visual confirmation of whether anything was
+arriving at all, and a harness driving IrcClient directly popped zero messages in
+20 seconds, which read as a broken queue when it was really `state=2` (Connected)
+with nothing to deliver.
 
-So the fault is between twitch_chat_next_message and a box appearing. Suspects,
-in order: the restructured guard order in speak_tick, the sDeferred re-issue
-block, sInjecting bracketing. Next step is a diagnostic build that logs which
-guard in speak_tick returns early, rather than more reading.
+Settled by a diagnostic build (SPEAK_DEBUG in src/speak.c) that names the guard
+each speak_tick declines on, plus a line per arriving message. Run 5 traced a
+complete cycle on the first real message the channel produced:
 
-Crash status: unchanged and still undiagnosed. Runs 4, 4b, 4c all crashed, but
-4b and 4c predate or coincide with the regression above, so they do not test the
-allocation-free queues fairly. Re-run the ladder once speaking works again.
+    [twitch-chat] got avaaaaaaaaaishere: "Hi" flags 0x0 trigger 4 -> speak
+    [speak] queued (1 waiting) portrait 15: "avaaaaaaaaaishere: Hi"
+    [speak] clear to speak (queued 1, ours showing 0, idle 90)
+    [speak] showDialog returned 1 for portrait 15
+    [speak] a dialogue is already up (queued 0, ours showing 1, idle 0)
+    [speak] queue empty (queued 0, ours showing 0, idle 90)
+
+Bottles appeared on screen and spoke it, confirmed visually. No guard blocked
+anything, showDialog returned 1. de5b1a8, 58397d8 and fbbe501 are all cleared.
+
+Lesson worth keeping: test against a channel whose input you control. A silent
+channel is indistinguishable from a broken pipeline, and it cost most of a
+session. Keep the overlay ON while testing for the same reason -- it is the
+cheapest possible check that messages are arriving.
+
+Leave SPEAK_DEBUG on while hunting the crash; set it to 0 before releasing.
+
+Crash status: unchanged and still undiagnosed. Runs 4, 4b and 4c all crashed.
+They are still not a fair test of the allocation-free queues, though for a
+different reason than recorded before: not because speaking was broken, but
+because a silent channel means the message path was barely exercised at all.
+Re-run the ladder against a channel that is actually talking.

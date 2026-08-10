@@ -40,6 +40,22 @@
 
 #include "twitch_str.h"
 
+// Traces why a queued message is not being spoken. Set to 0 for a release build;
+// it prints one line per change of reason, plus one per queued message, which is
+// quiet enough to leave on while playing.
+#define SPEAK_DEBUG 1
+
+// Reasons speak_tick can decline to inject, in the order the guards appear.
+#define BLOCK_NONE          0
+#define BLOCK_NOT_IN_GAME   1
+#define BLOCK_TRANSITION    2
+#define BLOCK_MAP_CHANGED   3
+#define BLOCK_DIALOG_UP     4
+#define BLOCK_UNSAFE_MAP    5
+#define BLOCK_REISSUE       6
+#define BLOCK_IDLE_WAIT     7
+#define BLOCK_QUEUE_EMPTY   8
+
 // Any real dialogue asset works as the carrier. This one is Blubber's
 // first-meeting line: it only ever plays in Treasure Trove Cove, and we only
 // override it during the single call we make ourselves.
@@ -170,6 +186,29 @@ static s32 sLastMap = -1;
 // this safe to do at all.
 static int sOursShowing = 0;
 static SpeakRequest sShowing;
+
+#if SPEAK_DEBUG
+static const char* const kBlockNames[] = {
+    "clear to speak", "not in normal gameplay", "map transition", "map changed",
+    "a dialogue is already up", "unsafe map", "re-issuing the game's request",
+    "waiting for idle frames", "queue empty",
+};
+
+static int sLastBlock = -1;
+
+// Prints only when the reason changes, so a message that never gets spoken says
+// exactly which guard is holding it rather than repeating 30 times a second.
+static void speak_trace_block(int reason) {
+    if (reason == sLastBlock) {
+        return;
+    }
+    sLastBlock = reason;
+    recomp_printf("[speak] %s (queued %d, ours showing %d, idle %d)\n",
+                  kBlockNames[reason], sQueueCount, sOursShowing, sIdleFrames);
+}
+#else
+#define speak_trace_block(reason) ((void)0)
+#endif
 
 // Set only while our own gcdialog_showDialog call is in flight.
 //
@@ -593,6 +632,12 @@ void speak_queue(const char* user, const char* text, int default_portrait,
     }
 
     sQueueCount++;
+
+#if SPEAK_DEBUG
+    recomp_printf("[speak] queued (%d waiting) portrait %d: \"%s\"\n",
+                  sQueueCount, portrait, req->text);
+    sLastBlock = -1;
+#endif
 }
 
 void speak_clear_chat(void) {
@@ -636,6 +681,7 @@ void speak_tick(void) {
     // into core2, which is not loaded otherwise.
     if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL) {
         sIdleFrames = 0;
+        speak_trace_block(BLOCK_NOT_IN_GAME);
         return;
     }
 
@@ -655,6 +701,7 @@ void speak_tick(void) {
         // Any request we captured belongs to the area being left behind.
         sDeferred.pending = 0;
         sIdleFrames = 0;
+        speak_trace_block(BLOCK_TRANSITION);
         return;
     }
 
@@ -669,10 +716,13 @@ void speak_tick(void) {
             sOursShowing = 0;
             sDeferred.pending = 0;
             sIdleFrames = 0;
+            speak_trace_block(BLOCK_MAP_CHANGED);
             return;
         }
         if (gcdialog_hasCurrentTextId() || !is_safe_map(map)) {
             sIdleFrames = 0;
+            speak_trace_block(gcdialog_hasCurrentTextId() ? BLOCK_DIALOG_UP
+                                                         : BLOCK_UNSAFE_MAP);
             return;
         }
     }
@@ -683,6 +733,7 @@ void speak_tick(void) {
     // system declines harmlessly.
     if (sDeferred.pending) {
         sDeferred.pending = 0;
+        speak_trace_block(BLOCK_REISSUE);
         gcdialog_showDialogConditional(sDeferred.text_id, sDeferred.arg1,
                 sDeferred.has_position ? sDeferred.position : NULL,
                 sDeferred.marker, sDeferred.callback, sDeferred.arg5,
@@ -693,18 +744,26 @@ void speak_tick(void) {
 
     if (sIdleFrames < SPEAK_IDLE_FRAMES) {
         sIdleFrames++;
+        speak_trace_block(BLOCK_IDLE_WAIT);
         return;
     }
 
     if (sQueueCount == 0) {
+        speak_trace_block(BLOCK_QUEUE_EMPTY);
         return;
     }
+
+    speak_trace_block(BLOCK_NONE);
 
     req = &sQueue[sQueueHead];
 
     if (build_blob(req->text, req->portrait) == 0) {
         // Nothing the font can draw survived. Drop it rather than opening an
         // empty box for a couple of seconds.
+#if SPEAK_DEBUG
+        recomp_printf("[speak] dropped, nothing printable: \"%s\"\n", req->text);
+        sLastBlock = -1;
+#endif
         sQueueHead = (sQueueHead + 1) % SPEAK_QUEUE_SIZE;
         sQueueCount--;
         return;
@@ -715,6 +774,11 @@ void speak_tick(void) {
     {
         int shown = gcdialog_showDialog(SPEAK_CARRIER_ASSET, 0, NULL, NULL, NULL, NULL);
         sInjecting = 0;
+#if SPEAK_DEBUG
+        recomp_printf("[speak] showDialog returned %d for portrait %d: \"%s\"\n",
+                      shown, req->portrait, req->text);
+        sLastBlock = -1;
+#endif
         if (!shown) {
             // The game refused (a cutscene flag, most likely). Leave the
             // message queued, and require a fresh idle stretch before retrying.

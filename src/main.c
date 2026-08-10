@@ -313,6 +313,10 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         // "Hide Bot Commands" on.
         spoken = speakable_body(sTextBuffer, flags);
 
+        recomp_printf("[twitch-chat] got %s: \"%s\" flags 0x%x trigger %d -> %s\n",
+                      sUserBuffer, sTextBuffer, flags, sSpeakTrigger,
+                      (spoken != NULL) ? "speak" : "ignore");
+
         if (!(sHideCommands && sTextBuffer[0] == '!')) {
             overlay_push_line(sUserBuffer, sTextBuffer, color);
         }
