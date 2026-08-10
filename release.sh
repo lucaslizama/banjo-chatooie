@@ -29,7 +29,10 @@ done
 # Package identity on Thunderstore. Letters, digits and underscores only.
 TS_NAME="BanjoChatooie"
 TS_WEBSITE="https://github.com/lucaslizama/banjo-chatooie"
-TS_DESCRIPTION="BETA, and it can still crash. Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes with their portraits and voices. Chat picks who speaks."
+# Thunderstore shows this above everything else, so it has to stay true. It said
+# "BETA, and it can still crash" until 0.3.0, which was honest at the time and
+# became stale the moment the crash was fixed. Revisit it at every release.
+TS_DESCRIPTION="Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes, with their portraits and voices. Chat picks who speaks. Beta, but the 0.2.0 crash is fixed."
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
 if [ -z "$VERSION" ]; then
@@ -42,6 +45,23 @@ case "$(uname -s)" in
     Darwin) PLATFORM="macos-$(uname -m)"; LIB="banjo_chatooie_native.dylib" ;;
     *)      PLATFORM="windows-x86_64";    LIB="banjo_chatooie_native.dll"   ;;
 esac
+
+# Start from an empty dist/, always.
+#
+# Archives are named by version, so stale ones accumulate silently and every one
+# of them looks publishable. That is not hypothetical: a v0.2.1 archive survived a
+# version bump that was reconsidered, leaving a file on disk for a release that
+# never existed and must never be uploaded. Old artifacts are also unhelpful in
+# the other direction -- a build that fails after the zip step leaves the previous
+# attempt sitting there looking like a success.
+#
+# Everything here is reproducible from a tag, so nothing in dist/ is worth
+# keeping.
+if [ -d dist ]; then
+    echo "==> clearing dist/ ($(find dist -maxdepth 1 -name '*.zip' | wc -l) old archive(s))"
+    rm -rf dist
+fi
+mkdir -p dist
 
 echo "==> building"
 ./build.sh
