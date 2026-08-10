@@ -146,6 +146,15 @@ id rather than an invented one, because `dialogBin_release` frees whatever
 `s_dialogBin.ptr` points at, and an id the asset cache never loaded would
 unbalance it.
 
+Borrowing a real id has a cost, and it is all Blubber's, because the carrier is
+one of his lines. The id cannot distinguish our call from his, so the
+substitution requires `sInjecting` -- set only for the duration of our own
+`gcdialog_showDialog` -- and `sHijack` is cleared unconditionally once that call
+returns. Without both, a flag left set would mean Blubber reads out a chat
+message instead of his own first-meeting dialogue in Treasure Trove Cove. He was
+also, for a while, the one NPC who could not interrupt a chat box, because the
+yield hook recognised our call by asset id and so mistook him for us.
+
 ## Engine landmines
 
 Six things in the original game will softlock or crash it the moment you feed

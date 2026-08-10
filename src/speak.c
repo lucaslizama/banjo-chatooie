@@ -381,7 +381,16 @@ RECOMP_PATCH char* dialogBin_get(s32 text_id) {
     s_dialogBin.index = text_id;
     result = s_dialogBin.ptr + offset;
 
-    if (sHijack && text_id == SPEAK_CARRIER_ASSET) {
+    // Substitute only while OUR OWN gcdialog_showDialog call is in flight.
+    //
+    // sInjecting is what makes this safe, and it is not redundant with sHijack.
+    // The carrier is one of Blubber's real lines, so the id alone cannot tell our
+    // call apart from his. If sHijack were ever still set when the game loaded
+    // 0xA0B for its own reasons -- Blubber's first meeting in Treasure Trove Cove
+    // is exactly that -- he would read out a chat message instead of his own
+    // dialogue. Requiring sInjecting narrows the window to the inside of our call
+    // and nothing else can land in it.
+    if (sHijack && sInjecting && text_id == SPEAK_CARRIER_ASSET) {
         sHijack = 0;
         return (char*)sBlob;
     }
@@ -774,6 +783,12 @@ void speak_tick(void) {
     {
         int shown = gcdialog_showDialog(SPEAK_CARRIER_ASSET, 0, NULL, NULL, NULL, NULL);
         sInjecting = 0;
+        // Cleared unconditionally, not just on the refusal path. dialogBin_get
+        // clears it when it substitutes, but it is only called if the dialogue
+        // system actually loaded the asset during our call. Any path that
+        // doesn't would leave the flag set with no call of ours left to consume
+        // it, which is precisely the state that lets it leak onto Blubber.
+        sHijack = 0;
 #if SPEAK_DEBUG
         recomp_printf("[speak] showDialog returned %d for portrait %d: \"%s\"\n",
                       shown, req->portrait, req->text);
@@ -782,7 +797,6 @@ void speak_tick(void) {
         if (!shown) {
             // The game refused (a cutscene flag, most likely). Leave the
             // message queued, and require a fresh idle stretch before retrying.
-            sHijack = 0;
             sIdleFrames = 0;
             return;
         }
