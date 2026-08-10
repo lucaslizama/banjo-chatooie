@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # bk-decomp is only needed for its headers, but it is a 40MB working
           # tree, so fetch it shallow rather than with full history.
@@ -77,7 +77,7 @@ jobs:
           exit $fail
 
       - name: Keep the archives on the run
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: archives
           path: dist/*.zip
