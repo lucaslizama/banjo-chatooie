@@ -112,8 +112,14 @@ static void read_default_portrait(void) {
     recomp_free_config_string(configured);
 }
 
-// Returns 1 when the configured channel changed (including the first read).
+// Returns 1 when the configured channel changed and has settled.
+//
+// The setting is a text field being typed into, and this runs every couple of
+// seconds, so a partial name like "vi" on the way to "vixen" would otherwise
+// trigger a full disconnect and reconnect to Twitch. Waiting for the same value
+// twice in a row means only what you actually finished typing is acted on.
 static int refresh_channel(void) {
+    static char sPendingChannel[64];
     char* configured = recomp_get_config_string("channel");
     int changed = 0;
 
@@ -122,8 +128,12 @@ static int refresh_channel(void) {
     }
 
     if (!twitch_streq(configured, sChannel)) {
-        twitch_strcpy(sChannel, configured, (int)sizeof(sChannel));
-        changed = 1;
+        if (twitch_streq(configured, sPendingChannel)) {
+            twitch_strcpy(sChannel, configured, (int)sizeof(sChannel));
+            changed = 1;
+        } else {
+            twitch_strcpy(sPendingChannel, configured, (int)sizeof(sPendingChannel));
+        }
     }
 
     recomp_free_config_string(configured);
