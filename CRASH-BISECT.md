@@ -137,3 +137,40 @@ std::string members of ChatMessage with fixed char arrays, so pop performs no
 allocation, no deallocation and no library calls at all on the game thread. That
 is consistent with runs 1-3 surviving precisely because they never reached the
 deallocating path.
+
+## Session 2 (10 Aug)
+
+Fixed and committed:
+- de5b1a8 Blubber (our call marked by a flag, not by asset id), Brentilda
+  (deferred re-issue restored), notify_all now holds wake_mutex_.
+- 58397d8 Queues are allocation-free: ChatMessage holds fixed char arrays and a
+  plain array ring replaces std::deque. pop() is now 40 instructions and three
+  calls: pthread_mutex_lock, memcpy, pthread_mutex_unlock. Those two mutex calls
+  are what runs 1-3 exercised every frame without trouble.
+- fbbe501 speak_clear_chat had a 3328-byte array in a stack frame. The game's
+  main thread stack is 0x17F0 = 6128 bytes TOTAL. It fired on every channel
+  change. Temporary is static now; largest MIPS frame in the mod is 88 bytes.
+  Also write_string took a std::string, so the new char arrays built a temporary
+  per message -- an allocation on the game thread. Takes const char* now.
+
+### OPEN REGRESSION, the thing to fix first
+
+Characters no longer speak AT ALL in the current build. Confirmed with
+Characters Speak On = Every message on a busy channel: nothing appears. Run 3
+(yesterday, commit 4af2076 era) had boxes working, so one of the three commits
+above broke it. The redemption path is NOT specifically at fault; speaking is
+broken for every trigger.
+
+Verified NOT the cause:
+- the helper delivers correctly (socket tapped alongside the mod, well-formed
+  lines seen on the wire)
+- redemptions reach the native queue and are marked FULFILLED
+
+So the fault is between twitch_chat_next_message and a box appearing. Suspects,
+in order: the restructured guard order in speak_tick, the sDeferred re-issue
+block, sInjecting bracketing. Next step is a diagnostic build that logs which
+guard in speak_tick returns early, rather than more reading.
+
+Crash status: unchanged and still undiagnosed. Runs 4, 4b, 4c all crashed, but
+4b and 4c predate or coincide with the regression above, so they do not test the
+allocation-free queues fairly. Re-run the ladder once speaking works again.
