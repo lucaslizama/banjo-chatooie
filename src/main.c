@@ -121,18 +121,33 @@ static void read_default_portrait(void) {
 static int refresh_channel(void) {
     static char sPendingChannel[64];
     char* configured = recomp_get_config_string("channel");
+    char* start;
+    int end;
     int changed = 0;
 
     if (configured == NULL) {
         return 0;
     }
 
-    if (!twitch_streq(configured, sChannel)) {
-        if (twitch_streq(configured, sPendingChannel)) {
-            twitch_strcpy(sChannel, configured, (int)sizeof(sChannel));
+    // Trim surrounding whitespace. A stray space is easy to type and would
+    // otherwise read as a different channel from the same name without it, and
+    // a field holding only spaces would look set rather than empty.
+    start = configured;
+    while (*start == ' ' || *start == '\t') {
+        start++;
+    }
+    end = twitch_strlen(start);
+    while (end > 0 && (start[end - 1] == ' ' || start[end - 1] == '\t')) {
+        end--;
+    }
+    start[end] = '\0';
+
+    if (!twitch_streq(start, sChannel)) {
+        if (twitch_streq(start, sPendingChannel)) {
+            twitch_strcpy(sChannel, start, (int)sizeof(sChannel));
             changed = 1;
         } else {
-            twitch_strcpy(sPendingChannel, configured, (int)sizeof(sPendingChannel));
+            twitch_strcpy(sPendingChannel, start, (int)sizeof(sPendingChannel));
         }
     }
 
