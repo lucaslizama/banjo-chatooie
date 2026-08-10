@@ -43,6 +43,32 @@ last one is gitignored, being a prebuilt binary.
 The native library links libstdc++ statically so players do not need a matching
 toolchain runtime.
 
+## Releasing
+
+Bump `version` in `mod.toml`, then push a tag that matches it:
+
+```
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+A GitHub Action builds both platforms and publishes them. It refuses to run if
+the tag and the manifest version disagree, which is the mistake that is easy to
+make and annoying to undo once a release exists.
+
+The same thing can be done locally:
+
+```
+./release.sh                        # host archive only
+./release.sh --windows              # also cross-compiles the DLL
+./release.sh --windows --publish    # and uploads both to the matching release
+```
+
+Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
+
+There is no macOS archive. Cross-compiling for macOS needs the Xcode SDK, which
+Apple does not permit redistributing, so `.dylib` builds have to happen on a Mac.
+Running `./release.sh` there produces one from the same source.
+
 ## How the mod gets a per-frame tick
 
 The recomp runtime declares exactly one event of its own, `recomp_on_init`, which

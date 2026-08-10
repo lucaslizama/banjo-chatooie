@@ -1,0 +1,92 @@
+name: Release
+
+# Pushing a version tag builds both platforms and publishes them.
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# Can also be run by hand from the Actions tab, which builds the archives and
+# leaves them as artifacts without publishing anything.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          # bk-decomp is only needed for its headers, but it is a 40MB working
+          # tree, so fetch it shallow rather than with full history.
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install toolchains
+        run: |
+          sudo apt-get update
+          # clang and lld build the MIPS half; mingw-w64 cross-compiles the
+          # Windows library. LLVM 19.1.0 has a MIPS regression, so take
+          # whatever the runner's default is rather than the newest.
+          sudo apt-get install -y clang lld mingw-w64 zip
+
+      - name: Fetch RecompModTool
+        run: |
+          mkdir -p tools
+          curl -sSfL -o tools/RecompModTool \
+            https://github.com/N64Recomp/N64Recomp/releases/download/mod-tool-release/RecompModTool
+          chmod +x tools/RecompModTool
+          tools/RecompModTool --help >/dev/null 2>&1 || true
+
+      - name: Check the version tag matches mod.toml
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          manifest=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
+          tagged="${GITHUB_REF_NAME#v}"
+          if [ "$manifest" != "$tagged" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match mod.toml version $manifest."
+            echo "Bump the version in mod.toml, or retag."
+            exit 1
+          fi
+          echo "version $manifest"
+
+      - name: Build and package
+        run: ./release.sh --windows
+
+      - name: Check both archives came out whole
+        run: |
+          fail=0
+          for zip in dist/*.zip; do
+            echo "== $zip"
+            unzip -l "$zip"
+            # The mod will not load without its native library, so an archive
+            # missing one is worse than no archive at all.
+            if ! unzip -l "$zip" | grep -qE "twitch_chat\.(so|dll)"; then
+              echo "::error::$zip has no native library in it"
+              fail=1
+            fi
+            if ! unzip -l "$zip" | grep -q "twitch_chat_integration.nrm"; then
+              echo "::error::$zip has no .nrm in it"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Keep the archives on the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: archives
+          path: dist/*.zip
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "Twitch Chat Integration $GITHUB_REF_NAME" \
+            --notes-file RELEASE_NOTES.md
