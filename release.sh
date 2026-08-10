@@ -29,7 +29,7 @@ done
 # Package identity on Thunderstore. Letters, digits and underscores only.
 TS_NAME="BanjoChatooie"
 TS_WEBSITE="https://github.com/lucaslizama/banjo-chatooie"
-TS_DESCRIPTION="BETA, not yet stream-tested. Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes with their portraits and voices. Chat picks who speaks."
+TS_DESCRIPTION="BETA, and it can still crash. Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes with their portraits and voices. Chat picks who speaks."
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
 if [ -z "$VERSION" ]; then
