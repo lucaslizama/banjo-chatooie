@@ -296,7 +296,7 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         // ours, so characters don't carry on reading out the channel you left.
         // The overlay clears itself, because the connection state change below
         // replaces its contents with a status line.
-        speak_clear();
+        speak_clear_chat();
         sLastState = -1;
     }
 
@@ -318,7 +318,8 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         }
 
         if (spoken != NULL) {
-            speak_queue(sUserBuffer, spoken, sDefaultPortrait, sSpeakShowName);
+            speak_queue(sUserBuffer, spoken, sDefaultPortrait, sSpeakShowName,
+                        (flags & TWITCH_MSG_REDEEMED) == 0);
         }
     }
 

@@ -106,22 +106,34 @@ the chat box, while his first-meeting line does not. Same NPC, different asset
 id, different behaviour -- so it is the id, not the character. Only 0xA0B is
 affected, which is exactly our carrier.
 
+## Run 4 result: CRASHED. Bisection complete.
 
-## Queued for 0.2.1
+| run | configuration                    | result       |
+| --- | -------------------------------- | ------------ |
+| 0   | no mod                           | 14m42s clean |
+| 1   | loaded, idle                     | 17m00s clean |
+| 2   | + chat reader                    | 13m38s clean |
+| 3   | + dialogue injection             | 15m16s clean |
+| 4   | + channel point redemptions      | CRASHED      |
 
-- Brentilda's dialogue is dropped when a chat box is up. Restore the deferred
-  re-issue removed in 4af2076; the hang it once caused is understood and fixed.
-- Blubber's first-meeting line does not yield, because it IS the carrier asset
-  and the hook identifies our own calls by text id. Use an explicit flag instead.
-- stop() calls notify_all() without holding wake_mutex_, so a missed wakeup can
-  leave the game thread waiting out a backoff of up to 60 seconds.
-- Run 4: channel point redemptions, the only configuration the bisect has not
-  cleared, and the one every crash so far occurred under.
-- The Thunderstore description. 0.2.0 shipped with "BETA, not yet
-  stream-tested", which is inaccurate and the wrong warning. The replacement is
-  already in release.sh and travels with the next upload, since the description
-  lives in the package manifest and cannot be edited after a version is
-  published.
-- Read the docs over properly. Several places still describe how things worked
-  earlier in the day rather than how they work now, and the rename left phrasing
-  in odd shapes. Worth a full pass rather than more spot fixes.
+Backtrace unchanged: RedemptionClient::pop, PC 0.
+
+The narrowing that matters: twitch_chat_next_message calls redemptions().pop()
+every frame in EVERY run. In runs 1-3 that queue was always empty, so pop
+returned at `if (queue_.empty())`. Run 4 is the first time it went further, into
+
+    out = std::move(queue_.front());
+    queue_.pop_front();
+
+which frees string buffers and deque blocks, i.e. calls out to free(). Calling
+out is what has failed in every crash tonight.
+
+Note the standalone test (scratchpad/redtest.cpp) drives exactly this path
+outside the game and passes, so the code is not wrong in isolation; something
+about doing it inside the recomp process is.
+
+Next idea, untried: remove allocation from the queue entirely. Replace the
+std::string members of ChatMessage with fixed char arrays, so pop performs no
+allocation, no deallocation and no library calls at all on the game thread. That
+is consistent with runs 1-3 surviving precisely because they never reached the
+deallocating path.

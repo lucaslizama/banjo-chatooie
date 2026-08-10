@@ -127,12 +127,7 @@ void RedemptionClient::stop() {
 
 bool RedemptionClient::pop(ChatMessage& out) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (queue_.empty()) {
-        return false;
-    }
-    out = std::move(queue_.front());
-    queue_.pop_front();
-    return true;
+    return queue_.pop(out);
 }
 
 void RedemptionClient::handle_line(const std::string& line) {
@@ -141,22 +136,19 @@ void RedemptionClient::handle_line(const std::string& line) {
         return;
     }
 
-    ChatMessage msg;
-    msg.user = sanitize_text(line.substr(0, tab), kMaxUserLen);
-    msg.text = sanitize_text(line.substr(tab + 1), kMaxTextLen);
+    ChatMessage msg{};
+    set_field(msg.user, sizeof(msg.user), sanitize_text(line.substr(0, tab), kMaxUserLen));
+    set_field(msg.text, sizeof(msg.text), sanitize_text(line.substr(tab + 1), kMaxTextLen));
     msg.color = -1;
     msg.highlighted = false;
     msg.redeemed = true;
 
-    if (msg.user.empty() || msg.text.empty()) {
+    if (msg.empty()) {
         return;
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    queue_.push_back(std::move(msg));
-    while (queue_.size() > queue_limit_) {
-        queue_.pop_front();
-    }
+    queue_.push(msg);
 }
 
 void RedemptionClient::run(int port) {

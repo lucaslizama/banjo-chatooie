@@ -81,6 +81,7 @@
 typedef struct {
     char text[SPEAK_MAX_TEXT];
     int portrait;
+    int from_chat;              // false for channel point redemptions
 } SpeakRequest;
 
 static SpeakRequest sQueue[SPEAK_QUEUE_SIZE];
@@ -540,7 +541,8 @@ static int build_blob(const char* text, int portrait) {
     return visible;
 }
 
-void speak_queue(const char* user, const char* text, int default_portrait, int show_name) {
+void speak_queue(const char* user, const char* text, int default_portrait,
+                 int show_name, int from_chat) {
     SpeakRequest* req;
     const char* body = text;
     int portrait = default_portrait;
@@ -580,6 +582,7 @@ void speak_queue(const char* user, const char* text, int default_portrait, int s
     slot = (sQueueHead + sQueueCount) % SPEAK_QUEUE_SIZE;
     req = &sQueue[slot];
     req->portrait = portrait;
+    req->from_chat = from_chat;
 
     if (show_name) {
         twitch_strcpy(req->text, user, SPEAK_MAX_TEXT);
@@ -592,9 +595,25 @@ void speak_queue(const char* user, const char* text, int default_portrait, int s
     sQueueCount++;
 }
 
-void speak_clear(void) {
+void speak_clear_chat(void) {
+    SpeakRequest kept[SPEAK_QUEUE_SIZE];
+    int count = 0;
+    int i;
+
+    // Compact rather than empty. A redemption someone spent points on should not
+    // be discarded because the streamer retyped the channel name.
+    for (i = 0; i < sQueueCount; i++) {
+        const SpeakRequest* req = &sQueue[(sQueueHead + i) % SPEAK_QUEUE_SIZE];
+        if (!req->from_chat) {
+            kept[count++] = *req;
+        }
+    }
+
+    for (i = 0; i < count; i++) {
+        sQueue[i] = kept[i];
+    }
     sQueueHead = 0;
-    sQueueCount = 0;
+    sQueueCount = count;
 }
 
 void speak_tick(void) {

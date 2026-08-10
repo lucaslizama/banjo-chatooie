@@ -2,12 +2,20 @@
 
 A mod for Banjo-Kazooie: Recompiled that puts your Twitch chat into the game.
 
-**This is a beta.** It has been tested by two people on one machine, and never on
-a live stream. The channel points feature works, and has been driven end to end
-through Twitch's own mock API, but it has never talked to a live Twitch account,
-so signing in and creating the reward for real are still unproven. It should not
-break your game, and nothing it does touches your save file, but expect rough
-edges and please say what goes wrong.
+**This is a beta, and there is a known crash.** With everything enabled the game
+tends to crash after roughly ten minutes. It is an ordinary crash, so nothing is
+corrupted and your save file is not touched, but you lose unsaved progress.
+
+It has not been diagnosed. What is known: with the mod loaded but idle, with chat
+running, and with characters speaking, the game ran fifteen minutes or more each
+time without trouble. The crash has only shown up with channel point redemptions
+active, which is where the search continues. If you would rather avoid it, the
+`!say` command and the corner panel have both had long clean runs.
+
+Otherwise it has been tested by two people on one machine and never on a live
+stream, and the channel points feature has only ever talked to Twitch's mock
+server, never a real account, so signing in and creating the reward for real are
+unproven. Please say what goes wrong.
 
 Two things happen with an incoming message. It scrolls in a small panel in the
 corner of the screen, and, if you want, a character from the game reads it aloud
@@ -60,6 +68,16 @@ Affiliate and a small script running alongside the game, described in
 `Every message` makes every single line of chat get spoken. Chaotic, but it is
 the fastest way to see whether everything works.
 
+### When the game wants to talk
+
+Story dialogue always wins. Walk up to a molehill or an NPC while a chat box is on
+screen and the chat box gets out of the way, so you never have to wait for chat to
+finish before the game can talk to you. The interrupted message is spoken
+afterwards rather than thrown away.
+
+Nothing is ever spoken during a cutscene, or across a map transition. Messages
+that arrive then wait their turn.
+
 ### Choosing who speaks
 
 Start the message with a name and a colon. `!say mumbo: hello banjo` comes out of
@@ -70,10 +88,10 @@ Every name chat can use, all case-insensitive:
 
 | Main cast | Villains | Spiral Mountain and the lair | Worlds |
 | --- | --- | --- | --- |
-| banjo | grunty | bottles | gobi |
-| kazooie | gruntilda | mumbo | rubee |
-| tooty | klungo | brentilda | jinxy |
-| dingpot | vile | cheato | croctus |
+| banjo ✔ | grunty ✔ | bottles | gobi |
+| kazooie ✔ | gruntilda ✔ | mumbo | rubee |
+| tooty ✔ | klungo | brentilda | jinxy |
+| dingpot ✔ | vile | cheato | croctus |
 | | snacker | loggo | boggy |
 | | lockup | eyrie | wozza |
 | | grabba | nabnut | tiptup |
@@ -105,7 +123,8 @@ all. Accented letters are turned into their plain equivalents, so "mañana" come
 out as MANANA rather than losing the letter. Emoji, Japanese and anything else
 without a reasonable stand-in is dropped, and a message made entirely of those is
 skipped instead of opening an empty box. Very long words get a space forced into
-them, because a word wider than the text box crashes the game.
+them, because a word wider than the text box would otherwise crash the game
+outright.
 
 None of this affects the corner panel, which shows messages exactly as typed,
 emoji and all.
@@ -139,6 +158,10 @@ not lost, they wait and play once the cutscene ends.
 
 If a character's portrait is not who you expected, that is the numbering problem
 described above. Find the right one with `!say #<number>: test`.
+
+If the game crashes after about ten minutes, that is the known crash in the note
+at the top, not something you did. Turning **Characters Speak On** away from
+`Channel point reward` is the configuration that has held up longest.
 
 ## Building it yourself
 

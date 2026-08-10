@@ -169,6 +169,19 @@ std::string normalize_channel(const std::string& channel) {
 
 } // namespace
 
+void set_field(char* dst, size_t capacity, const std::string& src) {
+    size_t n = src.size();
+    if (n > capacity - 1) {
+        n = capacity - 1;
+        // Do not leave half a character behind; back off continuation bytes.
+        while (n > 0 && ((unsigned char)src[n] & 0xC0) == 0x80) {
+            n--;
+        }
+    }
+    std::memcpy(dst, src.data(), n);
+    dst[n] = '\0';
+}
+
 std::string sanitize_text(const std::string& in, size_t max_len) {
     std::string out;
     out.reserve(in.size());
@@ -326,20 +339,12 @@ void IrcClient::stop() {
 
 bool IrcClient::pop(ChatMessage& out) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (queue_.empty()) {
-        return false;
-    }
-    out = std::move(queue_.front());
-    queue_.pop_front();
-    return true;
+    return queue_.pop(out);
 }
 
-void IrcClient::push(ChatMessage&& msg) {
+void IrcClient::push(const ChatMessage& msg) {
     std::lock_guard<std::mutex> lock(mutex_);
-    queue_.push_back(std::move(msg));
-    while (queue_.size() > queue_limit_) {
-        queue_.pop_front();
-    }
+    queue_.push(msg);
 }
 
 void IrcClient::run(std::string channel) {
@@ -508,9 +513,9 @@ void IrcClient::handle_line(const std::string& line, int socket_fd, const std::s
         user = (bang == std::string::npos) ? prefix : prefix.substr(0, bang);
     }
 
-    ChatMessage msg;
-    msg.user = sanitize_text(user, kMaxUserLen);
-    msg.text = sanitize_text(text, kMaxTextLen);
+    ChatMessage msg{};
+    set_field(msg.user, sizeof(msg.user), sanitize_text(user, kMaxUserLen));
+    set_field(msg.text, sizeof(msg.text), sanitize_text(text, kMaxTextLen));
     msg.color = parse_hex_color(tag_value(tags, "color"));
     msg.highlighted = tag_value(tags, "msg-id") == "highlighted-message";
 
@@ -522,12 +527,12 @@ void IrcClient::handle_line(const std::string& line, int socket_fd, const std::s
                          badges.find("broadcaster/") != std::string::npos;
     }
 
-    if (msg.user.empty() || msg.text.empty()) {
+    if (msg.empty()) {
         return;
     }
 
     (void)channel;
-    push(std::move(msg));
+    push(msg);
 }
 
 } // namespace twitch

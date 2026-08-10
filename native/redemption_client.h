@@ -48,8 +48,7 @@ private:
     std::atomic<State> state_{State::Idle};
 
     std::mutex mutex_;
-    std::deque<ChatMessage> queue_;
-    size_t queue_limit_ = 32;
+    MessageRing<32> queue_;
 
     intptr_t active_socket_ = -1;
     std::mutex socket_mutex_;

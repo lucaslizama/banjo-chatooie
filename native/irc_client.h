@@ -35,9 +35,17 @@ enum class State : int {
     Error = 3,
 };
 
+// Deliberately plain data: fixed buffers, no std::string, no pointers.
+//
+// Every crash in this mod has been the native library calling out to something
+// and landing on a bad address, and the bisection narrowed it to the moment
+// RedemptionClient::pop first had a non-empty queue -- the first time it reached
+// the move and the destruction, which free string buffers. Copying a struct of
+// arrays instead calls nothing at all. The capacities match the guest buffers in
+// twitch_chat_abi.h, so a message that fits here fits there.
 struct ChatMessage {
-    std::string user;
-    std::string text;
+    char user[40];              // TWITCH_USER_CAPACITY
+    char text[256];             // TWITCH_TEXT_CAPACITY
     // 0xRRGGBB, or -1 when the chatter has never picked a colour.
     int32_t color = -1;
     // Set for messages sent through the built-in "Highlight My Message" channel
@@ -50,6 +58,51 @@ struct ChatMessage {
     // Came from a channel point redemption via the helper process rather than
     // from chat. See redemption_client.h.
     bool redeemed = false;
+
+    bool empty() const { return user[0] == '\0' || text[0] == '\0'; }
+};
+
+// Copies `src` into a fixed field, truncating on a UTF-8 boundary so the result
+// is always a valid, terminated string.
+void set_field(char* dst, size_t capacity, const std::string& src);
+
+// Fixed-capacity ring of messages, and allocation-free on purpose.
+//
+// pop() runs on the game thread every frame. A std::deque frees a block when one
+// empties, which is another call out from the very code that has been failing, so
+// this is a plain array with a head and a count. Pushing into a full ring drops
+// the oldest, because the newest chat is the interesting chat.
+template <size_t Capacity>
+class MessageRing {
+public:
+    void push(const ChatMessage& msg) {
+        if (count_ == Capacity) {
+            head_ = (head_ + 1) % Capacity;
+            count_--;
+        }
+        slots_[(head_ + count_) % Capacity] = msg;
+        count_++;
+    }
+
+    bool pop(ChatMessage& out) {
+        if (count_ == 0) {
+            return false;
+        }
+        out = slots_[head_];
+        head_ = (head_ + 1) % Capacity;
+        count_--;
+        return true;
+    }
+
+    void clear() {
+        head_ = 0;
+        count_ = 0;
+    }
+
+private:
+    ChatMessage slots_[Capacity]{};
+    size_t head_ = 0;
+    size_t count_ = 0;
 };
 
 class IrcClient {
@@ -66,14 +119,10 @@ public:
     // Pops the oldest queued message. Returns false when the queue is empty.
     bool pop(ChatMessage& out);
 
-    // Drops queued messages beyond this count, oldest first. Keeps a chat that
-    // outruns the game from growing without bound.
-    void set_queue_limit(size_t limit) { queue_limit_ = limit; }
-
 private:
     void run(std::string channel);
     void handle_line(const std::string& line, int socket_fd, const std::string& channel);
-    void push(ChatMessage&& msg);
+    void push(const ChatMessage& msg);
 
     void set_active_socket(intptr_t fd);
     void interrupt_active_socket();
@@ -89,8 +138,7 @@ private:
     std::mutex socket_mutex_;
 
     std::mutex mutex_;
-    std::deque<ChatMessage> queue_;
-    size_t queue_limit_ = 64;
+    MessageRing<64> queue_;
 
     std::string channel_;
     std::mutex channel_mutex_;

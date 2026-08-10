@@ -41,8 +41,13 @@ native half, and `tools/RecompModTool` from the
 [N64Recomp releases page](https://github.com/N64Recomp/N64Recomp/releases). That
 last one is gitignored, being a prebuilt binary.
 
-The native library links libstdc++ statically so players do not need a matching
-toolchain runtime.
+The native library links libstdc++ and libgcc statically, and is built `-fno-plt`
+and linked `-Bsymbolic`, so almost every call it makes is resolved inside it
+rather than through the GOT. That is not about portability. Core dumps repeatedly
+caught calls from this library landing on a PLT stub's unrelocated file offset,
+and although the cause was never found, the fewer indirections there are, the
+fewer places that can happen. The result has zero PLT entries and only libc and
+libm as external dependencies.
 
 ## Releasing
 
@@ -128,9 +133,10 @@ unbalance it.
 
 ## Engine landmines
 
-Four things in the original game will softlock or crash it the moment you feed
-arbitrary text through the dialogue system. None of them can be hit by Rare's own
-dialogue, which is why they were never found.
+Six things in the original game will softlock or crash it the moment you feed
+arbitrary text through the dialogue system. None of them can be reached by Rare's
+own dialogue, which is why they were never found. They share a root: this format
+assumes data that shipped in the ROM, and validates none of it.
 
 **Every entry list needs a terminator after the last text entry.** The `default:`
 branch of `dialog_update` reads `CMD(string_index + 1)->cmd` for every non-empty
@@ -140,6 +146,29 @@ the end of the array `loadAndCreateDialogs` allocated, treats the garbage as the
 next portrait and string, and leaves that box open forever. After that
 `gcdialog_hasCurrentTextId()` never goes false again and no conversation anywhere
 in the game can start.
+
+**Each box's entry list needs several terminators, not one.** `DIALOG_STATE_6`,
+which every closing dialogue passes through, scans forward from `string_index`
+for a command between `-4` and `-1`:
+
+```c
+for (j = string_index[i]; dialog[i][j].cmd < -4 || dialog[i][j].cmd >= 0; j++)
+```
+
+No bound, and no reference to `string_count`. With a single close entry, a
+`string_index` that has already moved past it sends that scan off the end of the
+allocation to spin over whatever follows, which hangs the game rather than
+crashing it. `build_blob` appends four. This is a different unbounded read from
+the one above, reached from a different direction, and fixing one does not fix the
+other.
+
+**Never leave a box open across a map transition.** A transition tears down the
+heap, and a box's entry arrays were allocated from it while `dialogBin_release`
+frees the carrier asset back into it. Leaving one open across that is a dangling
+pointer or an unbalanced free, and a corrupted allocator surfaces later as
+unrelated code holding wrong addresses, which is a miserable thing to debug from
+the far end. `speak_tick` closes ours as soon as `gctransition_active()` reports a
+transition, and refuses to inject during one.
 
 **No word may be longer than the line.** `_gczoombox_findLineBreak` scans
 backwards for a space that fits inside 24 printed characters, and its loop has no
