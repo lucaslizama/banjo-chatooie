@@ -60,7 +60,12 @@ else
         # bias applied. Binding eagerly means those stubs are never used at all,
         # and a read-only GOT turns any stray write into a fault at the writer
         # rather than a mystery jump much later.
-        LINK_EXTRA := -Wl,--no-undefined -Wl,-z,nodelete -Wl,-z,now -Wl,-z,relro
+        # Static libstdc++ and libgcc again, but for a different reason than the
+        # first time. Combined with -Bsymbolic, it means the C++ runtime calls
+        # this library makes are resolved inside it rather than through the
+        # GOT, which is the thing that keeps coming back wrong.
+        LINK_EXTRA := -Wl,--no-undefined -Wl,-z,nodelete -Wl,-z,now -Wl,-z,relro \
+                      -Wl,-Bsymbolic -static-libstdc++ -static-libgcc
     endif
 endif
 
@@ -71,6 +76,12 @@ OBJS     := $(addprefix $(BUILD_DIR)/, $(SRCS:.cpp=.o))
 DEPS     := $(OBJS:.o=.d)
 
 CXXFLAGS := -std=c++17 -O2 -fPIC -fvisibility=hidden -Wall -Wextra -pthread
+
+# -fno-plt calls through the GOT directly instead of via a PLT stub. Repeated
+# core dumps caught calls from this library landing on a stub's unrelocated file
+# offset -- 0x33a6 from one function, 0x32a6 from another -- so the fewer of
+# those stubs exist, the fewer places that can happen.
+CXXFLAGS += -fno-plt
 LDFLAGS  := -shared -pthread $(LINK_EXTRA)
 
 all: $(TARGET)

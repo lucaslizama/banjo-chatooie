@@ -258,10 +258,19 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
 
         // Only run the redemption reader when it's the chosen trigger -- it
         // means a helper process, so there is no point connecting otherwise.
-        if (sSpeakTrigger == SPEAK_TRIGGER_REDEEMED) {
-            twitch_redemptions_start(REDEMPTION_PORT);
-        } else {
-            twitch_redemptions_stop();
+        // Only on an actual change: calling stop() twice a second forever put a
+        // pointless thread-join path on the game thread at every poll.
+        {
+            static int sRedemptionsWanted = -1;
+            int wanted = (sSpeakTrigger == SPEAK_TRIGGER_REDEEMED);
+            if (wanted != sRedemptionsWanted) {
+                sRedemptionsWanted = wanted;
+                if (wanted) {
+                    twitch_redemptions_start(REDEMPTION_PORT);
+                } else {
+                    twitch_redemptions_stop();
+                }
+            }
         }
 
         // Only touch the UI when something actually changed. Re-applying every
