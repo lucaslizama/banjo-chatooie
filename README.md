@@ -84,34 +84,58 @@ Start the message with a name and a colon. `!say mumbo: hello banjo` comes out o
 Mumbo, in Mumbo's voice. Anything without a recognised name falls back to the
 **Default Character** setting.
 
-Every name chat can use, all case-insensitive:
+Every name chat can use, all case-insensitive. A ✔ means someone has watched
+that one draw the right face in game.
 
-| Main cast | Villains | Spiral Mountain and the lair | Worlds |
-| --- | --- | --- | --- |
-| banjo ✔ | grunty ✔ | bottles | gobi |
-| kazooie ✔ | gruntilda ✔ | mumbo | rubee |
-| tooty ✔ | klungo | brentilda | jinxy |
-| dingpot ✔ | vile | cheato | croctus |
-| | snacker | loggo | boggy |
-| | lockup | eyrie | wozza |
-| | grabba | nabnut | tiptup |
-| | teehee | motzhand | tanktup |
-| | twinkly | tumblar | trunker |
-| | gnawty | mummum | clanker |
-| | flibbit | juju | snippet |
-| | zubba | yumyum | nipper |
-| | | leaky | blubber |
-| | | gloop | conga ✔ |
-| | | | chimpy |
+**The main cast**
+`banjo` ✔ · `kazooie` ✔ · `tooty` · `uglytooty` · `crocbanjo` · `bottles` ·
+`mumbo` · `cheato` ✔
 
-The Jinjos: `jinjo` (yellow), `yellowjinjo`, `greenjinjo`, `bluejinjo`,
-`pinkjinjo`, `orangejinjo`.
+**Grunty and her lot**
+`grunty` ✔ · `gruntilda` ✔ · `sexygrunty` · `brentilda` ✔ · `klungo` ·
+`dingpot` ✔ · `cauldron` · `warpcauldron` · `vile` · `lockup` · `littlelockup`
 
-Six of these are confirmed to draw who they say they do: banjo, kazooie, tooty,
-grunty, dingpot and conga. The rest come from the community's names for the game's
-portraits and a few are probably off by one, so you may get a neighbour instead
-of the character you asked for. If you would rather pick by number,
-`!say #87: hello` uses portrait 87 directly, and any number from 12 to 106 works.
+**Mumbo's Mountain**
+`conga` ✔ · `chimpy` · `juju` · `ticker` · `termite`
+
+**Treasure Trove Cove**
+`blubber` · `nipper` · `snacker` · `yumyum` · `leaky`
+
+**Clanker's Cavern**
+`clanker` · `snippet` · `blacksnippet`
+
+**Bubblegloop Swamp**
+`tiptup` · `tanktup` · `flibbit` · `mummum` · `croctus` · `piranha` ·
+`choirmember`
+
+**Freezeezy Peak**
+`boggy` ✔ · `wozza` · `twinkly` · `chomper` · `bearcubs` · `bluegift` ·
+`greengift` · `redgift`
+
+**Gobi's Valley**
+`gobi` · `rubee` · `jinxy` · `ancientone` · `sandeel` · `grabba`
+
+**Mad Monster Mansion**
+`motzhand` · `tumblar` · `loggo` · `gloop` · `teehee`
+
+**Rusty Bucket Bay**
+`snorkel` · `boombox`
+
+**Click Clock Wood**
+`nabnut` ✔ · `eyrie` ✔ · `youngeyrie` · `gnawty` · `caterpillar` · `worm` ·
+`zubba` · `trunker`
+
+**Jinjos**
+`jinjo` (yellow) · `yellowjinjo` · `greenjinjo` · `bluejinjo` · `pinkjinjo` ·
+`orangejinjo`
+
+These are read from the game's own portrait table, so a name gives you the
+character it says. Earlier versions guessed at a few and got them wrong -- asking
+for Klungo used to produce a gift-wrapped Christmas present.
+
+You can also pick a portrait by number. `!say #87: hello` uses portrait 87
+directly, and anything from 12 to 106 works. That reaches a handful of oddities
+with no name of their own, including the collectable icons around 37 to 48.
 
 ## What chat cannot say
 
@@ -156,8 +180,10 @@ If characters never speak, check **Characters Speak On** is not set to Off, and
 remember that nothing is spoken during cutscenes. Messages that arrive then are
 not lost, they wait and play once the cutscene ends.
 
-If a character's portrait is not who you expected, that is the numbering problem
-described above. Find the right one with `!say #<number>: test`.
+If a character's portrait is not who you expected, please report it. The names are
+read from the game's own portrait table now, so they should all be right, and a
+wrong one is worth knowing about. `!say #<number>: test` will find the right one
+in the meantime.
 
 If the game crashes after about ten minutes, that is the known crash in the note
 at the top, not something you did. Turning **Characters Speak On** away from

@@ -316,38 +316,78 @@ typedef struct {
     int portrait;
 } PortraitEntry;
 
-// Only portraits 0x0C and up are reachable: the blob's cmd byte maps to
-// `cmd + 0xC`, so anything below that can't be addressed. Every major speaking
-// character is above the line.
+// Indices into the game's own portrait table: D_8036C6C0 in
+// bk-decomp/src/core2/gc/zoombox.c. That array is the authority -- 107 entries,
+// each naming the sprite asset it draws -- so these are read straight off it.
+// Do NOT take values from the GcZoomboxSprite enum instead: it lists 106 names,
+// one short, and drifts out of step with the real data above the gap.
 //
-// CAUTION: these indices are NOT simply the decomp's GcZoomboxSprite values.
-// Those names are community guesses and drift by one somewhere above 0x41 --
-// the entry labelled BANJO_3 draws Tooty, and KAZOOIE_3 draws Banjo. Entries
-// marked "verified" were checked against what the game actually renders; the
-// rest are still the enum's values and may be off by one. Check one with the
-// "#<index>" syntax before correcting it here.
+// Only 0x0C and up is reachable. The blob's cmd byte maps to `cmd + 0xC`, so the
+// twelve entries below that cannot be addressed at all -- which includes the
+// pretty Tooty at 0x07, though 0x42 is another copy of her that can be reached.
+//
+// Checked against what the game actually draws (2026-08-10): 0x12 Conga, 0x41
+// Grunty, 0x43 Boggy, 0x50 Nabnut, 0x55 Eyrie, 0x57 Brentilda, 0x5B Cheato, 0x61
+// Banjo, 0x62 Kazooie, 0x64 Dingpot. Every one matched the array, and 0x5D was
+// confirmed to draw a Christmas present, which is what sent us to the array in
+// the first place. That is why the rest are trusted without probing each.
+//
+// Mind these near misses when editing: 0x5D is a present and NOT Klungo, 0x66 is
+// Grunty and NOT Lockup, 0x67 is Lockup and NOT Vile. All three were wrong here.
 static const PortraitEntry kPortraits[] = {
-    /* verified */ { "banjo", 0x61 }, { "kazooie", 0x62 }, { "tooty", 0x60 },
-    /* verified, from the Dingpot's line in asset 0x0E57 */ { "dingpot", 0x64 },
-    /* verified, from Grunty's line in asset 0x0E57 */ { "grunty", 0x41 },
-    { "gruntilda",  0x41 },
-    { "bottles",    0x0F },
-    { "mumbo",      0x10 }, { "brentilda",  0x57 }, { "cheato",     0x5B },
-    { "klungo",     0x5D }, { "boggy",      0x43 }, { "wozza",      0x44 },
-    { "gobi",       0x1D }, { "rubee",      0x1C }, { "tiptup",     0x18 },
-    { "tanktup",    0x19 }, { "trunker",    0x1B }, { "clanker",    0x15 },
-    { "snacker",    0x3B }, { "chimpy",     0x11 },
-    /* verified, drawn for #18 */ { "conga", 0x12 },
-    { "blubber",    0x13 }, { "nipper",     0x14 }, { "snippet",    0x16 },
-    { "flibbit",    0x1A }, { "grabba",     0x1E }, { "teehee",     0x1F },
-    { "juju",       0x35 }, { "yumyum",     0x36 }, { "leaky",      0x38 },
-    { "gloop",      0x39 }, { "jinxy",      0x3F }, { "croctus",    0x40 },
-    { "motzhand",   0x45 }, { "tumblar",    0x46 }, { "mummum",     0x47 },
-    { "zubba",      0x4F }, { "gnawty",     0x4D }, { "twinkly",    0x4B },
-    { "nabnut",     0x50 }, { "eyrie",      0x55 }, { "loggo",      0x5A },
-    { "lockup",     0x66 }, { "vile",       0x67 },
-    { "jinjo",      0x20 }, { "yellowjinjo", 0x20 }, { "greenjinjo", 0x21 },
-    { "bluejinjo",  0x22 }, { "pinkjinjo",  0x23 }, { "orangejinjo", 0x24 },
+    // Bears, birds and the family
+    { "banjo",        0x61 }, { "kazooie",      0x62 }, { "tooty",        0x42 },
+    { "uglytooty",    0x60 }, { "crocbanjo",    0x65 },
+
+    // Grunty's side
+    { "grunty",       0x41 }, { "gruntilda",    0x41 }, { "sexygrunty",   0x5F },
+    { "brentilda",    0x57 }, { "klungo",       0x5E }, { "dingpot",      0x64 },
+    { "cauldron",     0x56 }, { "warpcauldron", 0x56 }, { "vile",         0x17 },
+    { "lockup",       0x67 }, { "littlelockup", 0x37 },
+
+    // Helpers and hangers-on
+    { "bottles",      0x0F }, { "mumbo",        0x10 }, { "cheato",       0x5B },
+
+    // Mumbo's Mountain
+    { "chimpy",       0x11 }, { "conga",        0x12 }, { "juju",         0x35 },
+    { "ticker",       0x34 }, { "termite",      0x34 },
+
+    // Treasure Trove Cove
+    { "blubber",      0x13 }, { "nipper",       0x14 }, { "snacker",      0x3B },
+    { "yumyum",       0x36 }, { "leaky",        0x38 },
+
+    // Clanker's Cavern
+    { "clanker",      0x15 }, { "snippet",      0x16 }, { "blacksnippet", 0x59 },
+
+    // Bubblegloop Swamp
+    { "tiptup",       0x18 }, { "tanktup",      0x19 }, { "flibbit",      0x1A },
+    { "mummum",       0x47 }, { "croctus",      0x40 }, { "piranha",      0x33 },
+    { "choirmember",  0x3A },
+
+    // Freezeezy Peak
+    { "boggy",        0x43 }, { "twinkly",      0x4B }, { "chomper",      0x4C },
+    { "bearcubs",     0x51 }, { "bluegift",     0x48 }, { "greengift",    0x5C },
+    { "redgift",      0x5D }, { "wozza",        0x44 },
+
+    // Gobi's Valley
+    { "gobi",         0x1D }, { "rubee",        0x1C }, { "jinxy",        0x3F },
+    { "ancientone",   0x3C }, { "sandeel",      0x3D }, { "grabba",       0x1E },
+
+    // Mad Monster Mansion
+    { "motzhand",     0x45 }, { "tumblar",      0x46 }, { "loggo",        0x5A },
+    { "gloop",        0x39 }, { "teehee",       0x1F },
+
+    // Rusty Bucket Bay
+    { "snorkel",      0x3E }, { "boombox",      0x4E },
+
+    // Click Clock Wood
+    { "nabnut",       0x50 }, { "eyrie",        0x55 }, { "youngeyrie",   0x52 },
+    { "gnawty",       0x4D }, { "caterpillar",  0x31 }, { "worm",         0x49 },
+    { "zubba",        0x4F }, { "trunker",      0x1B },
+
+    // Jinjos
+    { "jinjo",        0x20 }, { "yellowjinjo",  0x20 }, { "greenjinjo",   0x21 },
+    { "bluejinjo",    0x22 }, { "pinkjinjo",    0x23 }, { "orangejinjo",  0x24 },
 };
 
 #define PORTRAIT_COUNT ((int)(sizeof(kPortraits) / sizeof(kPortraits[0])))

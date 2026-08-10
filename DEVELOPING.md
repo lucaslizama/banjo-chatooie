@@ -252,21 +252,42 @@ underneath the current one.
 Long messages need no splitting, though. The zoombox wraps and scrolls by itself
 at 24 characters per line.
 
-## The portrait numbering is wrong in the decomp
+## Portraits: read the array, not the enum
 
-`GcZoomboxSprite` in the decompilation names 106 portraits. The real table has
-107. The size is recoverable from the symbol file: `D_8036D924 - D_8036C6C0` is
-4708 bytes, and `gczoomboxPortraitInfo` is 44 bytes (`s16 + s8 + s8` plus five
-8-byte sound entries), which divides exactly into 107.
+`kPortraits` is derived from `D_8036C6C0` in `bk-decomp/src/core2/gc/zoombox.c`.
+That array is the authority. It holds 107 entries and every one names the sprite
+asset it draws, so the correct index for any character can simply be read off it:
 
-So one portrait is missing from the enum, and every label after the gap sits one
-index too low. The entry labelled `BANJO_3` draws Tooty; `KAZOOIE_3` draws Banjo.
-Grunty at `0x41` is correct and the Dingpot at `0x64` is one higher than its
-label, which places the missing entry somewhere between `0x42` and `0x5F`.
+```c
+gczoomboxPortraitInfo D_8036C6C0[] = {
+     {ASSET_816_SPRITE_GRUNTILDA, 0xDA, 0xE5, {...
+```
 
-Entries in `kPortraits` marked `verified` were checked against what the game
-actually renders. The rest are still the enum's values and may be off by one. The
-`#<index>` syntax exists to check one: `!say #87: test` and see who turns up.
+Do not use the `GcZoomboxSprite` enum instead. It names only 106, one short, and
+its labels drift out of step with the real data. Three entries here were taken
+from it and all three were wrong: `klungo` pointed at `0x5D`, which is a
+Christmas present; `lockup` at `0x66`, which is Grunty; and `vile` at `0x67`,
+which is Lockup. A viewer asking for Klungo got a gift-wrapped box.
+
+Parsing the array beats probing by hand. Walking its braces and taking each
+entry's first field yields the whole index-to-character map in one go, and doing
+that turned a table of 51 entries with 3 errors into 74 with none.
+
+Only `0x0C` and up is addressable, because the blob's cmd byte maps to `cmd +
+0xC`. The twelve entries below it are unreachable, including the pretty Tooty at
+`0x07` -- `0x42` is another copy of her that can be reached.
+
+Spot-checked in play on 2026-08-10, all matching the array: `0x12` Conga, `0x41`
+Grunty, `0x43` Boggy, `0x50` Nabnut, `0x55` Eyrie, `0x57` Brentilda, `0x5B`
+Cheato, `0x61` Banjo, `0x62` Kazooie, `0x64` Dingpot -- and `0x5D` drawing a
+present, which is what prompted reading the array in the first place.
+
+`#<index>` addresses a portrait by raw index, which is how any of this gets
+checked: `!say #87: test` and see who turns up. It also reaches the entries with
+no name here, including the item icons at `0x25`-`0x30` and the three unnamed
+sprites at `0x68`-`0x6A`. `helper/`-adjacent scratch scripts aside, the quickest
+harness is a feed that sends `#<n>` probes with the number repeated in the body,
+so the face and its index are on screen together.
 
 ## Booting straight into a map
 
