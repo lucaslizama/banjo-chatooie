@@ -175,16 +175,26 @@ than a fix for a regression -- and note it has not yet been observed firing for
 her specifically, so treat it as unproven for this case.
 
 Borrowing a real id has a cost, and it is all Blubber's, because the carrier is
-one of his lines. Note the queue replay in `dialog.c:819`, which calls
-`func_80310B1C` from the per-frame update: that reaches `dialogBin_get` with
-`sInjecting` clear, and since our own call never queues, whatever it replays
-belongs to someone else. A stale `sHijack` would have been served to them. The id cannot distinguish our call from his, so the
-substitution requires `sInjecting` -- set only for the duration of our own
-`gcdialog_showDialog` -- and `sHijack` is cleared unconditionally once that call
-returns. Without both, a flag left set would mean Blubber reads out a chat
-message instead of his own first-meeting dialogue in Treasure Trove Cove. He was
-also, for a while, the one NPC who could not interrupt a chat box, because the
-yield hook recognised our call by asset id and so mistook him for us.
+one of his lines. The id cannot distinguish our call from his, and that broke him
+in two separate directions.
+
+He could not interrupt a chat box, alone among every NPC in the game, because the
+yield hook recognised our call by asset id and so mistook him for us. The hook
+tests `sInjecting` instead now. Confirmed fixed in play on 2026-08-10: walking up
+to him cancels a chat box immediately, and the displaced message stays queued and
+is spoken after his conversation.
+
+The other direction is a stale `sHijack` being served to him. Note the queue
+replay at `dialog.c:819`, which calls `func_80310B1C` from the per-frame update:
+it reaches `dialogBin_get` with `sInjecting` clear, and since our own call never
+queues, whatever it replays belongs to somebody else. So the substitution requires
+`sInjecting` as well as `sHijack`, and `sHijack` is cleared unconditionally once
+our call returns rather than only when `dialogBin_get` consumed it. Without both,
+he reads out a chat message instead of his own first-meeting dialogue.
+
+That second half is NOT yet verified in play. It needs his first-meeting line,
+asset `0xA0B`, which only fires on a save that has not met him -- so testing it on
+a save where he is already known proves nothing about the leak.
 
 ## Engine landmines
 
