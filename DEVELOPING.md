@@ -146,8 +146,39 @@ id rather than an invented one, because `dialogBin_release` frees whatever
 `s_dialogBin.ptr` points at, and an id the asset cache never loaded would
 unbalance it.
 
+`gcdialog_showDialogConditional` (dialog.c:898) has three outcomes, and they are
+worth knowing exactly, because both NPC bugs below fall out of them:
+
+- refused outright, `return 0`, if `VOLATILE_FLAG_1` or `func_802D686C()`
+- no dialogue up: calls `func_80310B1C` **synchronously**, which reaches
+  `loadAndCreateDialogs` -> `loadDialogStrings` -> `dialogBin_get`, and returns 1
+- dialogue already up: queues into `g_Dialog.unk148[]` and returns 1 **only** if
+  the caller passed `0x04` or `0x20` in arg1, otherwise `return 0` and the
+  request is simply gone
+
+The mod passes `arg1 = 0` and only calls this when `gcdialog_hasCurrentTextId()`
+is false, so it always takes the synchronous branch. That makes a return of 1
+equivalent to "`dialogBin_get` ran inside our call", which is what the
+`sInjecting` guard depends on.
+
+That third outcome explains Brentilda, and it is NOT a bug this mod introduced.
+She passes neither flag, so while any dialogue is up her request hits `return 0`
+and vanishes. Confirmed in play on 2026-08-10: she cannot be talked to during one
+of Grunty's own random taunt boxes either, with or without this mod. Vanilla
+behaves exactly the same way. Molehills and Leaky do pass a flag, which is why
+they queue and recover by themselves.
+
+So what the mod actually changes here is *frequency*, not correctness. A chat box
+is one more thing that can be on screen when the player walks up to her. The
+`sDeferred` capture-and-re-issue is therefore an improvement on vanilla rather
+than a fix for a regression -- and note it has not yet been observed firing for
+her specifically, so treat it as unproven for this case.
+
 Borrowing a real id has a cost, and it is all Blubber's, because the carrier is
-one of his lines. The id cannot distinguish our call from his, so the
+one of his lines. Note the queue replay in `dialog.c:819`, which calls
+`func_80310B1C` from the per-frame update: that reaches `dialogBin_get` with
+`sInjecting` clear, and since our own call never queues, whatever it replays
+belongs to someone else. A stale `sHijack` would have been served to them. The id cannot distinguish our call from his, so the
 substitution requires `sInjecting` -- set only for the duration of our own
 `gcdialog_showDialog` -- and `sHijack` is cleared unconditionally once that call
 returns. Without both, a flag left set would mean Blubber reads out a chat

@@ -261,6 +261,24 @@ RECOMP_HOOK("gcdialog_showDialogConditional") void speak_yield_to_game(
         s32 text_id, s32 arg1, f32* pos, ActorMarker* marker,
         void (*callback)(ActorMarker*, s32, s32),
         void (*arg5)(ActorMarker*, s32, s32), s32 arg6) {
+#if SPEAK_DEBUG
+    // Logs EVERY request the game makes, and what we did about it. Without this
+    // there is no way to tell "the NPC never asked" from "the NPC asked and we
+    // declined to help", and those need opposite fixes.
+    //
+    // arg1 matters: bit 0x04 or 0x20 means the dialogue system queues the request
+    // for itself, and anything without either is dropped outright when a box is
+    // already up. That is the whole Brentilda problem.
+    if (!sInjecting) {
+        recomp_printf("[dialog] request id 0x%X arg1 0x%X (dialogue up %d, ours %d, "
+                      "pending %d, queues itself %d)\n",
+                      (unsigned)text_id, (unsigned)arg1,
+                      gcdialog_hasCurrentTextId() ? 1 : 0, sOursShowing,
+                      sDeferred.pending, (arg1 & 0x24) ? 1 : 0);
+        sLastBlock = -1;
+    }
+#endif
+
     if (sInjecting) {
         return;             // that is us asking; do not yield to ourselves
     }
