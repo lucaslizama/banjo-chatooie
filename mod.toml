@@ -95,6 +95,18 @@ options = [ "Top Left", "Top Right", "Bottom Left", "Bottom Right" ]
 default = "Bottom Left"
 
 [[manifest.config_options]]
+id = "panel_width"
+name = "Chat Panel Width"
+description = "How wide the chat panel is, as a share of the screen. Wider fits more of each message on a line."
+type = "Number"
+min = 15
+max = 80
+step = 5
+precision = 0
+percent = true
+default = 40
+
+[[manifest.config_options]]
 id = "text_size"
 name = "Text Size"
 description = "Chat text size, in screen units."

@@ -12,6 +12,7 @@ typedef struct {
     unsigned long corner;       // OVERLAY_CORNER_*
     float text_size;            // dp
     float background_opacity;   // 0..1
+    float panel_width;          // percent of screen width
 } OverlaySettings;
 
 typedef enum {

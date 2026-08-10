@@ -72,6 +72,7 @@ static void read_settings(OverlaySettings* out) {
     out->corner = recomp_get_config_u32("corner");
     out->text_size = (float)recomp_get_config_double("text_size");
     out->background_opacity = (float)recomp_get_config_double("background_opacity") / 100.0f;
+    out->panel_width = (float)recomp_get_config_double("panel_width");
     sHideCommands = recomp_get_config_u32("hide_commands") != 0;
     sSpeakTrigger = (int)recomp_get_config_u32("speak_trigger");
     sSpeakPermission = (int)recomp_get_config_u32("speak_permission");
@@ -279,7 +280,8 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
         if (settings.line_count != sLastSettings.line_count ||
             settings.corner != sLastSettings.corner ||
             settings.text_size != sLastSettings.text_size ||
-            settings.background_opacity != sLastSettings.background_opacity) {
+            settings.background_opacity != sLastSettings.background_opacity ||
+            settings.panel_width != sLastSettings.panel_width) {
             overlay_apply_settings(&settings);
             sLastSettings = settings;
         }

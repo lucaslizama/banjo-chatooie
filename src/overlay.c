@@ -111,8 +111,16 @@ static void apply_settings_locked(const OverlaySettings* settings) {
         sSettings.line_count = OVERLAY_MAX_LINES;
     }
 
+    if (sSettings.panel_width < 15.0f) {
+        sSettings.panel_width = 15.0f;
+    }
+    if (sSettings.panel_width > 80.0f) {
+        sSettings.panel_width = 80.0f;
+    }
+
     background.a = (unsigned char)(sSettings.background_opacity * 255.0f);
     recompui_set_background_color(sPanel, &background);
+    recompui_set_width(sPanel, sSettings.panel_width, UNIT_PERCENT);
 
     apply_corner(sSettings.corner);
 
@@ -165,7 +173,15 @@ void overlay_create(const OverlaySettings* settings) {
     recompui_set_padding(sPanel, 12.0f, UNIT_DP);
     recompui_set_border_radius(sPanel, 8.0f, UNIT_DP);
     recompui_set_row_gap(sPanel, 4.0f, UNIT_DP);
-    recompui_set_width(sPanel, 34.0f, UNIT_PERCENT);
+    // Width comes from the settings; see apply_settings_locked.
+    //
+    // Clip at the panel edge as a backstop. min-width: 0 on the message label
+    // lets nearly everything wrap, but nothing available here can break a single
+    // unbroken token -- there is no word-break in this API -- so a 200-character
+    // URL would still reach past the edge. Better clipped than drawn over the
+    // game. Only the horizontal axis: clipping vertically would cut a wrapped
+    // message's last line.
+    recompui_set_overflow_x(sPanel, OVERFLOW_HIDDEN);
 
     for (i = 0; i < OVERLAY_MAX_LINES; i++) {
         sRows[i].row = recompui_create_element(sContext, sPanel);
@@ -176,11 +192,27 @@ void overlay_create(const OverlaySettings* settings) {
 
         sRows[i].user_label = recompui_create_label(sContext, sRows[i].row, "", LABELSTYLE_NORMAL);
         recompui_set_font_weight(sRows[i].user_label, 700);
+        // The name keeps its natural width and never shrinks.
+        //
+        // This is not decorative. A flex item defaults to flex-shrink: 1, so the
+        // message label competing for room squeezed the name's box narrower than
+        // its text -- and a username has no spaces, so it cannot wrap. It simply
+        // drew past its own edge and over the message. That was the overlap.
+        recompui_set_flex_grow(sRows[i].user_label, 0.0f);
+        recompui_set_flex_shrink(sRows[i].user_label, 0.0f);
 
         sRows[i].text_label = recompui_create_label(sContext, sRows[i].row, "", LABELSTYLE_NORMAL);
-        // The message takes the rest of the row and wraps; the name never shrinks.
+        // The message takes the rest of the row and wraps.
         recompui_set_flex_grow(sRows[i].text_label, 1.0f);
         recompui_set_flex_shrink(sRows[i].text_label, 1.0f);
+        // min-width: 0, and this is what stops long messages leaving the panel.
+        //
+        // A flex item's min-width defaults to auto, which resolves to its
+        // min-content width -- for text, the longest single word. flex-shrink
+        // cannot take an item below that, so one long word (a URL, an emote spam
+        // run) pushed the row wider than the panel and the text drew outside it to
+        // the right. Allowing zero lets the label shrink to the panel and wrap.
+        recompui_set_min_width(sRows[i].text_label, 0.0f, UNIT_DP);
     }
 
     apply_settings_locked(settings);
