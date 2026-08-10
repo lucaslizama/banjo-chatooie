@@ -167,8 +167,13 @@ static SpeakRequest sShowing;
 // Puts a request back at the front of the queue, keeping its place in order, so
 // an interrupted message is spoken once the story text is done rather than lost.
 static void requeue_front(const SpeakRequest* req) {
+    // A busy channel keeps this queue permanently full, so refusing when there
+    // is no room would mean the interrupted message is dropped every time,
+    // which is the normal case rather than the rare one. The message that was
+    // actually on screen has a better claim to the next slot than the newest
+    // thing chat happened to say, so make room by discarding the newest.
     if (sQueueCount >= SPEAK_QUEUE_SIZE) {
-        return;             // full of newer chat; let this one go
+        sQueueCount--;
     }
     sQueueHead = (sQueueHead + SPEAK_QUEUE_SIZE - 1) % SPEAK_QUEUE_SIZE;
     sQueue[sQueueHead] = *req;
