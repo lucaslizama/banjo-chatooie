@@ -123,8 +123,9 @@ nothing for it to read, and `!say` is the trigger to use instead.
 
 **Debug: Boot To Map** drops you straight into a level when the game starts,
 skipping the intro and the file select. It loads no save file, so the world comes
-up empty. Useful for trying things quickly, not for playing. Leave it off
-otherwise.
+up empty, and it deliberately switches the game to a separate scratch save file
+so your real save is never touched. Useful for trying things quickly, not for
+playing. Leave it off otherwise.
 
 ## Troubleshooting
 

@@ -16,9 +16,14 @@
 // Replacing `getDefaultBootMap` instead means the game boots where we want it to
 // the first time, through its own code path.
 //
-// No save file is loaded when booting this way, so the world comes up as an
-// empty file. That is fine for testing and matches what the game's own debug
-// boot (`getSpecialBootMap`) does.
+// This redirects the game to a scratch save file before it can touch anything.
+//
+// That is not a nicety. Booting straight into a map skips the file select, so
+// the game's in-memory save state is blank -- and Banjo-Kazooie writes that
+// state out on its own, on entering the lair and at other checkpoints. Pointed
+// at the normal save file, it overwrites a real save with a blank one, and then
+// overwrites the backup with it too. That destroyed a save during testing before
+// this call was added. Never remove it.
 
 #include "bootmap.h"
 
@@ -44,6 +49,10 @@ RECOMP_PATCH s32 getDefaultBootMap(void) {
     unsigned long choice = recomp_get_config_u32("debug_boot_map");
 
     if (choice > 0 && choice < (unsigned long)BOOT_MAP_COUNT) {
+        // Before the game can read or write anything, send it to a save file of
+        // our own. See the note above: without this, a debug boot will wipe the
+        // player's real save and its backup.
+        recomp_change_save_file("debug_boot");
         return kBootMaps[choice];
     }
 

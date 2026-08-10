@@ -190,7 +190,14 @@ calls `setBootMap(getDefaultBootMap())` *and* `func_8023DA9C(3)` before
 hook is far too late.
 
 No save file is loaded when booting this way, so the world comes up as an empty
-file. That is fine for testing and matches what the game's own debug boot does.
+file, and the mod calls `recomp_change_save_file` to point the game at a scratch
+save before it can touch anything.
+
+That call is not optional. Skipping the file select leaves the game's in-memory
+save state blank, and Banjo-Kazooie writes that state out by itself at
+checkpoints such as entering the lair. Aimed at the normal save file it
+overwrites a real save with a blank one, and then overwrites the backup with the
+same. That happened during development and the save was unrecoverable.
 
 ## Seeing the mod's log output
 
