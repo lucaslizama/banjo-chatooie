@@ -65,7 +65,10 @@ jobs:
             unzip -l "$zip"
             # The mod will not load without its native library, so an archive
             # missing one is worse than no archive at all.
-            if ! unzip -l "$zip" | grep -qE "twitch_chat\.(so|dll)"; then
+            # Matches any native library rather than a specific name: this
+            # check once went stale through a rename and passed a broken
+            # archive for weeks of nobody noticing.
+            if ! unzip -l "$zip" | grep -qE "\.(so|dll|dylib)$"; then
               echo "::error::$zip has no native library in it"
               fail=1
             fi
