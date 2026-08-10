@@ -187,8 +187,77 @@ cheapest possible check that messages are arriving.
 
 Leave SPEAK_DEBUG on while hunting the crash; set it to 0 before releasing.
 
-Crash status: unchanged and still undiagnosed. Runs 4, 4b and 4c all crashed.
-They are still not a fair test of the allocation-free queues, though for a
-different reason than recorded before: not because speaking was broken, but
-because a silent channel means the message path was barely exercised at all.
-Re-run the ladder against a channel that is actually talking.
+### The crash, finally located: our library's GOT reads as zero
+
+Runs 4, 4b and 4c all crashed. systemd-coredump had been capturing cores the
+whole time (`coredumpctl list`), which is worth knowing before hand-rolling
+another core-dump workflow.
+
+Run 4c's core (pid 1046475) is unambiguous. Faulting thread is `[Game] MAIN`,
+`rip = 0x0`, SEGV_MAPERR:
+
+    #0  0x0000000000000000
+    #1  twitch::RedemptionClient::pop(twitch::ChatMessage&)
+    #2  twitch_chat_next_message
+    #9  recomp::mods::run_hook
+    #16 mainThread_entry
+
+The return address lands one instruction after the FIRST call in `pop`:
+
+    <+23>: call *0x444e3(%rip)   # 0x7f117c0b4fa0
+    <+29>: test %eax,%eax         <- return address
+    <+31>: jne  ...pop.cold       <- the throw path
+
+So it is `std::mutex::lock()` -> `pthread_mutex_lock`, called through a GOT slot,
+and the call went to address 0. This is BEFORE the queue is touched at all -- the
+`count_ == 0` test is at <+40>. The earlier theory that the crash needed a
+non-empty queue is therefore wrong: this instruction runs on every single frame
+whether a message is waiting or not.
+
+Reading the slot: `_GLOBAL_OFFSET_TABLE_ + 592` and everything around it is zero,
+while `pthread_mutex_lock` is present in the process at 0x7f12f9ab0230.
+
+That zero is real, not a dump artifact -- which had to be checked, because `.got`
+contains zeros in the file on disk (relocations are applied at load), the default
+`coredump_filter` is 0x33 which excludes file-backed private pages, and gdb
+silently falls back to reading the file for pages absent from a core. It is
+present: `maintenance info sections` shows `load55 ALLOC LOAD READONLY
+HAS_CONTENTS` covering 0x7f117c0b3000-0x7f117c0b5000, which is exactly the RELRO
+region holding the GOT (base 0x7f117c055000 + 0x5e000..0x60000).
+
+What this means, and what it does not:
+
+- The slot was populated and later became zero. It is used on every frame from
+  the first frame, and the run survived minutes of messages before dying.
+- Nothing ordinary can write it. In the live process the GOT sits in an `r--p`
+  mapping (RELRO applied), so a stray store would fault at the writer instead of
+  quietly zeroing it. That points at the mapping being replaced or re-zeroed
+  rather than written through -- an mmap MAP_FIXED landing on it, or similar.
+- It is not a bug in this library's C++. No restructuring of `pop` fixes a GOT
+  that stops being valid.
+- Removing the mutex from the per-frame path would NOT be a real fix, only a
+  change of which call dies first. The reader thread calls libc constantly
+  through the same GOT.
+
+The -fno-plt / -Bsymbolic work did not help because it moved the same problem
+from `.got.plt` to `.got`. The old "PC=0 or a small unrelocated PLT offset"
+readings are both consistent with relocation data reading as zero.
+
+Yesterday's last core (1010939) is also `rip = 0x0`, so also a call through a
+null pointer, but frame #3 is `recompui::Element::set_text` and frame #1 does not
+resolve against the current .so. Same signature, different path -- suggestive of
+one mechanism, not proof of it. Do not write that down as settled.
+
+### Next step
+
+A watchdog thread inside the native library: once a second, read our own
+`/proc/self/maps` line and a saved copy of the expected libc pointer, and print
+the moment either changes. Reading maps is safe even if the page is gone. That
+pins down WHEN the GOT dies relative to game events (map load, save, heap
+churn), which is the one thing none of the cores can show, since they only ever
+show the aftermath.
+
+Also: `feed.py` in the scratchpad is a deterministic stand-in for the redemption
+helper -- same wire format, same port, our messages at our rate. Use it instead
+of a live channel. Every crash so far happened against whatever chat said at the
+time, which is why none of them were reproducible.
