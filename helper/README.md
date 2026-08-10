@@ -57,6 +57,48 @@ reward** in the mod's options.
 Only the redeemer's display name and the text they typed are passed to the game.
 Nothing is written to disk, and nothing is kept after the message scrolls away.
 
+## Testing without an Affiliate account
+
+You do not need channel points, or even a Twitch account, to test this. Twitch's
+own CLI ships a mock API server that implements the channel points rewards and
+redemptions endpoints locally.
+
+Download the [Twitch CLI](https://github.com/twitchdev/twitch-cli/releases), then:
+
+```
+twitch mock-api generate          # makes fake users, rewards and redemptions
+twitch mock-api start             # serves them on http://localhost:8080/mock
+```
+
+`generate` prints a Client-ID and a user id that has "all applicable units".
+Mint a token for that user:
+
+```
+curl -X POST "http://localhost:8080/auth/authorize?client_id=<id>&client_secret=<secret>\
+&grant_type=user_token&user_id=<user id>&scope=channel%3Aread%3Aredemptions+channel%3Amanage%3Aredemptions"
+```
+
+Then point this script at the mock instead of Twitch:
+
+```
+./twitch_redemptions.py --api-base http://localhost:8080/mock \
+    --token <the token> --broadcaster-id <user id> \
+    --reward-title "Fake reward for <user id>"
+```
+
+The generated redemptions have no message text, since the fake reward does not
+ask for any. Give a couple of them something to say by editing the CLI's database
+directly:
+
+```
+sqlite3 ~/.config/twitch-cli/eventCache.db \
+  "update channel_points_redemptions set user_input='mumbo: hello'
+   where id=(select id from channel_points_redemptions
+             where redemption_status='UNFULFILLED' limit 1);"
+```
+
+Setting them back to `UNFULFILLED` the same way lets you replay a test.
+
 ## Why polling instead of EventSub
 
 `GET /helix/channel_points/custom_rewards/redemptions` needs only HTTPS and JSON,

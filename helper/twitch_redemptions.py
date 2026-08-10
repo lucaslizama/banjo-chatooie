@@ -41,6 +41,11 @@ import urllib.request
 ID_BASE = "https://id.twitch.tv"
 API_BASE = "https://api.twitch.tv/helix"
 
+# Overridden by --api-base, which is how this gets tested without a Twitch
+# Affiliate account: the Twitch CLI's mock server implements the channel points
+# rewards and redemptions endpoints locally. See the README.
+api_base = API_BASE
+
 # channel:read:redemptions to see them; channel:manage:redemptions to create the
 # reward and mark redemptions fulfilled. Nothing broader is requested.
 SCOPES = "channel:read:redemptions channel:manage:redemptions"
@@ -176,7 +181,7 @@ class Twitch:
         }
 
     def call(self, method, path, params=None, data=None, retry=True):
-        url = API_BASE + path
+        url = api_base + path
         if params:
             url += "?" + urllib.parse.urlencode(params, doseq=True)
         try:
@@ -278,6 +283,10 @@ class Feed:
                 self.clients.append(conn)
             log("mod connected")
 
+    def has_clients(self):
+        with self.lock:
+            return bool(self.clients)
+
     def send(self, user, text):
         # Tabs and newlines are the framing, so they cannot appear in the data.
         clean = lambda s: s.replace("\t", " ").replace("\r", " ").replace("\n", " ")
@@ -311,9 +320,30 @@ def main():
                         help="channel point cost of the reward when it is created")
     parser.add_argument("--reauthorise", action="store_true",
                         help="discard the stored token and authorise again")
+    parser.add_argument("--api-base", default=API_BASE,
+                        help="Helix base URL. Point this at the Twitch CLI mock "
+                             "server (http://localhost:8080/mock) to test without "
+                             "an Affiliate account.")
+    parser.add_argument("--token",
+                        help="use this access token instead of authorising. "
+                             "Needed for the mock server, which mints its own.")
+    parser.add_argument("--broadcaster-id",
+                        help="skip the /users lookup and use this id. The mock "
+                             "server's generated users are not discoverable that way.")
     args = parser.parse_args()
 
+    global api_base
+    api_base = args.api_base
+
     config = load_config(args.config)
+
+    if args.token:
+        # Explicit token: no device flow, and deliberately not written to the
+        # config file, so a throwaway mock token cannot linger on disk.
+        config["access_token"] = args.token
+        config.pop("refresh_token", None)
+    if args.broadcaster_id:
+        config["broadcaster_id"] = args.broadcaster_id
 
     if args.client_id:
         config["client_id"] = args.client_id
@@ -333,6 +363,9 @@ def main():
         config["refresh_token"] = token.get("refresh_token")
         save_config(args.config, config)
 
+    if args.token:
+        log("using a supplied token against %s" % api_base)
+
     twitch = Twitch(config, args.config)
     reward_id = config.get("reward_id")
     if not reward_id or config.get("reward_title") != args.reward_title:
@@ -348,6 +381,15 @@ def main():
 
     while True:
         try:
+            # Only consume redemptions when the mod is actually listening.
+            # Fulfilling one with nobody connected throws away a message the
+            # viewer paid points for; leaving it unfulfilled means it is still
+            # waiting when the game starts, and can still be refunded from the
+            # dashboard if it never does.
+            if not feed.has_clients():
+                time.sleep(POLL_SECONDS)
+                continue
+
             pending = twitch.unfulfilled(reward_id)
             if pending:
                 # Oldest first, so chat arrives in the order it was redeemed.
