@@ -356,7 +356,10 @@ def main():
                                             "https://dev.twitch.tv/console")
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--reward-title", default=DEFAULT_REWARD_TITLE)
+    parser.add_argument("--reward-title", default=None,
+                        help="Name for the reward. Only used when creating it; "
+                             "afterwards the mod's Reward Name setting owns the "
+                             "name, and passing this renames it once.")
     parser.add_argument("--cost", type=int, default=100,
                         help="channel point cost of the reward when it is created")
     parser.add_argument("--reauthorise", action="store_true",
@@ -408,14 +411,24 @@ def main():
         log("using a supplied token against %s" % api_base)
 
     twitch = Twitch(config, args.config)
+    # The stored id is the reward's identity, and the title is NOT a lookup key.
+    #
+    # It used to be: this re-ran ensure_reward whenever the saved title disagreed
+    # with --reward-title. That broke as soon as the name became settable from the
+    # mod, because the saved title is then whatever the mod last asked for while
+    # --reward-title falls back to its default. They disagree on every launch,
+    # ensure_reward searches by the default title, does not find the renamed
+    # reward, and creates another one. Once per launch, accumulating on the
+    # channel.
     reward_id = config.get("reward_id")
-    if not reward_id or config.get("reward_title") != args.reward_title:
-        reward_id = twitch.ensure_reward(args.reward_title, args.cost)
+    if not reward_id:
+        title = args.reward_title or DEFAULT_REWARD_TITLE
+        reward_id = twitch.ensure_reward(title, args.cost)
         config["reward_id"] = reward_id
-        config["reward_title"] = args.reward_title
+        config["reward_title"] = title
         save_config(args.config, config)
 
-    log("watching %r on channel %s" % (args.reward_title,
+    log("watching %r on channel %s" % (config.get("reward_title", "?"),
                                        config.get("broadcaster_login", "?")))
 
     # The mod sends "TITLE\t<text>" whenever its Reward Name setting is set or
@@ -430,6 +443,12 @@ def main():
         if len(parts) == 2 and parts[0] == "TITLE" and parts[1].strip():
             with title_lock:
                 wanted_title[0] = parts[1].strip()
+
+    # An explicit --reward-title on a channel that already has the reward means
+    # "rename it", handled by the same path the mod's setting uses rather than a
+    # second one that could drift from it.
+    if args.reward_title and args.reward_title != config.get("reward_title"):
+        wanted_title[0] = args.reward_title
 
     feed = Feed(args.port, on_line=on_upstream)
 
