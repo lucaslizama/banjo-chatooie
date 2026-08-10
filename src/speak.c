@@ -112,6 +112,7 @@ extern struct {
     s32 index;
 } s_dialogBin;
 extern s32 code94620_func_8031B5B0(void);
+extern void func_803114D0(void);        // asks the current dialogue to close
 extern s32 gcdialog_hasCurrentTextId(void);
 extern s32 getGameMode(void);
 extern s32 map_get(void);
@@ -146,20 +147,51 @@ static int is_safe_map(s32 map) {
 
 static int sIdleFrames = 0;
 
-// Deliberately no attempt to interrupt the game's own dialogue.
+// Story dialogue always wins.
 //
-// An earlier version hooked gcdialog_showDialogConditional and, when the game
-// asked for a box while ours was up, closed ours through func_803114D0 and
-// re-issued the game's request afterwards. That hung during a Bottles tutorial.
-// DIALOG_STATE_6, which that close path enters, walks the entry list forward
-// with no bound, stopping only on a command between -4 and -1, and driving that
-// state machine from outside with a synthesised blob is far more delicate than
-// it looks.
+// When the game asks for a box while one of ours is up, ours gets out of the way
+// immediately. The game already has its own queue for this: showDialogConditional
+// stores the request when the caller passes 0x04 or 0x20 in arg1, and replays it
+// once the dialogue system frees up. So all this has to do is close our box; the
+// game's own line then plays by itself.
 //
-// What keeps the two apart instead is patience: three seconds of a completely
-// idle dialogue system before injecting anything. If the game does want to talk
-// while our box is up, its request is dropped, which costs one line of NPC
-// dialogue and no longer wedges anything.
+// An earlier version of this also re-issued the game's request by hand, which was
+// unnecessary, and it hung during a Bottles tutorial. That hang was
+// func_803114D0 entering DIALOG_STATE_6, whose scan walks the entry list forward
+// with no bound; the blob had a single close entry then and the scan ran off the
+// end of it. build_blob pads with several terminators now, which is what makes
+// this safe to do at all.
+static int sOursShowing = 0;
+static SpeakRequest sShowing;
+
+// Puts a request back at the front of the queue, keeping its place in order, so
+// an interrupted message is spoken once the story text is done rather than lost.
+static void requeue_front(const SpeakRequest* req) {
+    if (sQueueCount >= SPEAK_QUEUE_SIZE) {
+        return;             // full of newer chat; let this one go
+    }
+    sQueueHead = (sQueueHead + SPEAK_QUEUE_SIZE - 1) % SPEAK_QUEUE_SIZE;
+    sQueue[sQueueHead] = *req;
+    sQueueCount++;
+}
+
+RECOMP_HOOK("gcdialog_showDialogConditional") void speak_yield_to_game(
+        s32 text_id, s32 arg1, f32* pos, ActorMarker* marker,
+        void (*callback)(ActorMarker*, s32, s32),
+        void (*arg5)(ActorMarker*, s32, s32), s32 arg6) {
+    (void)arg1; (void)pos; (void)marker; (void)callback; (void)arg5; (void)arg6;
+
+    if (!sOursShowing || text_id == SPEAK_CARRIER_ASSET) {
+        return;
+    }
+    if (!gcdialog_hasCurrentTextId()) {
+        return;             // nothing in the way, the game's call will succeed
+    }
+
+    requeue_front(&sShowing);
+    sOursShowing = 0;       // also stops this firing twice for one box
+    func_803114D0();
+}
 
 typedef struct {
     const char* name;
@@ -507,6 +539,11 @@ void speak_clear(void) {
 void speak_tick(void) {
     SpeakRequest* req;
 
+    // Ours is gone the moment the dialogue system reports nothing showing.
+    if (!gcdialog_hasCurrentTextId()) {
+        sOursShowing = 0;
+    }
+
     // D_8027A130 == 3 is the in-game state that mainLoop runs the world update
     // in; anything else (boot, file select, cutscene transitions) has no
     // dialogue system to talk to.
@@ -545,6 +582,8 @@ void speak_tick(void) {
     }
 
     sIdleFrames = 0;
+    sOursShowing = 1;
+    sShowing = *req;
 
     // The box now holds pointers into the buffer we just filled, so the next
     // message must be built into the other one.
