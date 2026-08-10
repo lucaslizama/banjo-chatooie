@@ -52,7 +52,15 @@ else
         # out from under running threads looks like. Staying mapped costs a few
         # dozen KB for the life of the process and removes that whole class of
         # failure.
-        LINK_EXTRA := -Wl,--no-undefined -Wl,-z,nodelete
+        #
+        # -z now resolves every PLT entry at load time instead of lazily, and
+        # -z relro then makes the GOT read-only. A core dump caught a call to
+        # __cxa_guard_acquire landing on 0x33a6, which is the PLT stub's
+        # unrelocated file offset: the slot still held the raw value with no load
+        # bias applied. Binding eagerly means those stubs are never used at all,
+        # and a read-only GOT turns any stray write into a fault at the writer
+        # rather than a mystery jump much later.
+        LINK_EXTRA := -Wl,--no-undefined -Wl,-z,nodelete -Wl,-z,now -Wl,-z,relro
     endif
 endif
 

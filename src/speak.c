@@ -147,8 +147,21 @@ static int is_safe_map(s32 map) {
 
 static int sIdleFrames = 0;
 
-// True while a box we injected is on screen.
+// True while a box we injected is on screen, plus a copy of what it was saying.
+// If the game interrupts us, the message goes back on the queue rather than being
+// lost, so it gets read out once the story text is done.
 static int sOursShowing = 0;
+static SpeakRequest sShowing;
+
+// Puts a request back at the front of the queue, so it keeps its place in order.
+static void requeue_front(const SpeakRequest* req) {
+    if (sQueueCount >= SPEAK_QUEUE_SIZE) {
+        return;         // queue is full of newer chat; let this one go
+    }
+    sQueueHead = (sQueueHead + SPEAK_QUEUE_SIZE - 1) % SPEAK_QUEUE_SIZE;
+    sQueue[sQueueHead] = *req;
+    sQueueCount++;
+}
 
 // The game's own dialogue always wins. If it asks for one while ours is up, its
 // request would just return 0 and be dropped, and any script waiting on that box
@@ -194,6 +207,10 @@ RECOMP_HOOK("gcdialog_showDialogConditional") void speak_yield_to_game(
         sDeferred.position[1] = pos[1];
         sDeferred.position[2] = pos[2];
     }
+
+    // Put ours back so it is spoken after the game has had its turn.
+    requeue_front(&sShowing);
+    sOursShowing = 0;
 
     recomp_printf("[twitch-chat] yielding to game dialogue %04X\n", (int)text_id);
     func_803114D0();        // begin closing ours
@@ -587,6 +604,7 @@ void speak_tick(void) {
 
     sIdleFrames = 0;
     sOursShowing = 1;
+    sShowing = *req;
 
     // The box now holds pointers into the buffer we just filled, so the next
     // message must be built into the other one.
