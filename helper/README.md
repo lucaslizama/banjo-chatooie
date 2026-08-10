@@ -73,7 +73,7 @@ rewards would mean switching to EventSub.
 ## Why a separate process at all
 
 The alternative is putting TLS, JSON and a credential store inside
-`twitch_chat.so`, a C++ library that has to ship prebuilt for Linux, Windows and
+`banjo_chatooie_native.so`, a C++ library that has to ship prebuilt for Linux, Windows and
 macOS. That is a lot of surface area, and a lot of things to keep patched, in
 return for saving you one terminal window.
 

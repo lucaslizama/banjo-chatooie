@@ -27,9 +27,9 @@ for arg in "$@"; do
 done
 
 # Package identity on Thunderstore. Letters, digits and underscores only.
-TS_NAME="TwitchChatIntegration"
-TS_WEBSITE="https://github.com/lucaslizama/bk-twitch-chat-integration"
-TS_DESCRIPTION="Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes with their portraits and voices. Chat picks who speaks."
+TS_NAME="BanjoChatooie"
+TS_WEBSITE="https://github.com/lucaslizama/banjo-chatooie"
+TS_DESCRIPTION="BETA, not yet stream-tested. Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes with their portraits and voices. Chat picks who speaks."
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
 if [ -z "$VERSION" ]; then
@@ -38,9 +38,9 @@ if [ -z "$VERSION" ]; then
 fi
 
 case "$(uname -s)" in
-    Linux)  PLATFORM="linux-$(uname -m)"; LIB="twitch_chat.so"    ;;
-    Darwin) PLATFORM="macos-$(uname -m)"; LIB="twitch_chat.dylib" ;;
-    *)      PLATFORM="windows-x86_64";    LIB="twitch_chat.dll"   ;;
+    Linux)  PLATFORM="linux-$(uname -m)"; LIB="banjo_chatooie_native.so"    ;;
+    Darwin) PLATFORM="macos-$(uname -m)"; LIB="banjo_chatooie_native.dylib" ;;
+    *)      PLATFORM="windows-x86_64";    LIB="banjo_chatooie_native.dll"   ;;
 esac
 
 echo "==> building"
@@ -61,14 +61,14 @@ fi
 # without a library matching the player's platform.
 package() {
     local platform="$1" lib="$2" libdir="$3"
-    local name="twitch-chat-integration-v${VERSION}-${platform}"
+    local name="banjo-chatooie-v${VERSION}-${platform}"
     local stage="dist/$name"
 
     echo "==> staging $name"
     rm -rf "$stage" "dist/$name.zip"
     mkdir -p "$stage/helper"
 
-    cp "build/twitch_chat_integration.nrm" "$stage/"
+    cp "build/banjo_chatooie.nrm" "$stage/"
     cp "$libdir/$lib" "$stage/"
     cp README.md LICENSE NOTICE "$stage/"
     cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
@@ -87,12 +87,12 @@ package() {
 write_install_note() {
     local stage="$1" platform="$2" lib="$3"
     cat > "$stage/INSTALL.txt" <<EOF
-Twitch Chat Integration v${VERSION} for Banjo-Kazooie: Recompiled
+Banjo-Chatooie v${VERSION} for Banjo-Kazooie: Recompiled
 ${platform}
 
 1. Copy these two files into your mods folder:
 
-       twitch_chat_integration.nrm
+       banjo_chatooie.nrm
        ${lib}
 
    Linux:   ~/.config/BanjoRecompiled/mods
@@ -102,7 +102,7 @@ ${platform}
    Both files, in the same folder, next to each other. The mod will not load
    without the second one.
 
-2. Start the game, open the mod menu and enable Twitch Chat Integration.
+2. Start the game, open the mod menu and enable Banjo-Chatooie.
 
 3. Open its options and type your channel name into Twitch Channel, without
    the '#'.
@@ -122,16 +122,16 @@ EOF
 # picks its native library by platform extension, so shipping the .so and the
 # .dll side by side means one package works on both.
 package_thunderstore() {
-    local name="twitch-chat-integration-thunderstore-v${VERSION}"
+    local name="banjo-chatooie-thunderstore-v${VERSION}"
     local stage="dist/$name"
 
     echo "==> staging $name"
     rm -rf "$stage" "dist/$name.zip"
     mkdir -p "$stage/helper"
 
-    cp build/twitch_chat_integration.nrm "$stage/"
-    cp build/native/twitch_chat.so "$stage/"
-    cp build/native-windows/twitch_chat.dll "$stage/"
+    cp build/banjo_chatooie.nrm "$stage/"
+    cp build/native/banjo_chatooie_native.so "$stage/"
+    cp build/native-windows/banjo_chatooie_native.dll "$stage/"
     cp README.md LICENSE NOTICE "$stage/"
     cp assets/thunderstore-icon.png "$stage/icon.png"
     cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
@@ -179,13 +179,13 @@ if [ "$THUNDERSTORE" -eq 1 ]; then
 else
     package "$PLATFORM" "$LIB" "build/native"
     if [ "$WINDOWS" -eq 1 ]; then
-        package "windows-x86_64" "twitch_chat.dll" "build/native-windows"
+        package "windows-x86_64" "banjo_chatooie_native.dll" "build/native-windows"
     fi
 fi
 
 if [ "$PUBLISH" -eq 1 ]; then
     TAG="v$VERSION"
-    ARCHIVES=(dist/twitch-chat-integration-v${VERSION}-*.zip)
+    ARCHIVES=(dist/banjo-chatooie-v${VERSION}-*.zip)
 
     if gh release view "$TAG" >/dev/null 2>&1; then
         echo "==> uploading to the existing $TAG release"
@@ -193,7 +193,8 @@ if [ "$PUBLISH" -eq 1 ]; then
     else
         echo "==> creating release $TAG"
         gh release create "$TAG" "${ARCHIVES[@]}" \
-            --title "Twitch Chat Integration $TAG" \
+            --title "Banjo-Chatooie $TAG" \
+            --prerelease \
             --notes-file RELEASE_NOTES.md
     fi
     gh release view "$TAG" --json url --jq .url

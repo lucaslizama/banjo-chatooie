@@ -11,8 +11,8 @@ outside it. The mod is therefore split in two:
 
 | | what it is | what it does |
 | --- | --- | --- |
-| `native/` | a host shared library, `twitch_chat.so` | connects to Twitch IRC on its own thread, queues messages |
-| `src/` | MIPS mod code, `twitch_chat_integration.nrm` | drains that queue once a frame, draws the overlay, drives the text boxes |
+| `native/` | a host shared library, `banjo_chatooie_native.so` | connects to Twitch IRC on its own thread, queues messages |
+| `src/` | MIPS mod code, `banjo_chatooie.nrm` | drains that queue once a frame, draws the overlay, drives the text boxes |
 
 The MIPS side reaches the native side with `RECOMP_IMPORT(".", ...)`. The `.`
 means "an export of this mod itself", which is how the runtime routes a call into
@@ -20,7 +20,7 @@ a library the mod ships with. Every imported name must also appear in `mod.toml`
 under `native_libraries`, or the mod fails to load with an invalid import error.
 
 The two files are deployed side by side, not nested. The runtime builds the
-library filename from the manifest name (`twitch_chat` becomes `twitch_chat.so`
+library filename from the manifest name (`twitch_chat` becomes `banjo_chatooie_native.so`
 on Linux, `.dll` on Windows, `.dylib` on macOS) and looks for it in the folder
 *containing* the `.nrm`. Putting it inside the `.nrm` does nothing at all.
 
@@ -231,8 +231,8 @@ and its mod manager installs them, which saves explaining mods folders to anyone
 ```
 
 builds one package covering both platforms. That works because the runtime picks
-its native library by platform extension, so shipping `twitch_chat.so` and
-`twitch_chat.dll` side by side lets each machine take the one it needs.
+its native library by platform extension, so shipping `banjo_chatooie_native.so` and
+`banjo_chatooie_native.dll` side by side lets each machine take the one it needs.
 
 Thunderstore packages are laid out flat at the archive root, with `manifest.json`,
 `icon.png` (exactly 256x256) and `README.md` required. The script checks the name

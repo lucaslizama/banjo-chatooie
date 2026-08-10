@@ -14,7 +14,7 @@ TARGET_OS ?= host
 
 # Must match `name` in mod.toml's native_libraries. Keep this comment on its own
 # line: make keeps the whitespace before a trailing comment as part of the value.
-LIB_NAME := twitch_chat
+LIB_NAME := banjo_chatooie_native
 
 ifeq ($(TARGET_OS),windows)
     CXX       := x86_64-w64-mingw32-g++

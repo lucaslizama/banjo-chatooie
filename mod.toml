@@ -3,26 +3,30 @@
 [manifest]
 
 # Unique ID of this mod. Must never collide with another mod's ID.
-id = "lucas_twitch_chat_integration"
+id = "lucas_banjo_chatooie"
 
 version = "0.1.0"
 
-display_name = "Twitch Chat Integration"
+display_name = "Banjo-Chatooie (Beta)"
 
 description = """
+BETA. This works, but no real stream has run it yet, and the channel point \
+feature has never been tested against a live Twitch account. Expect rough edges \
+and please report what breaks.
+
 Shows your Twitch chat on screen while you play.
 
 Set your channel name in this mod's options and chat appears in the corner of \
 the screen. The connection is anonymous and read-only -- the mod never asks for \
 a Twitch account, password or OAuth token, and it cannot send messages.
 
-Requires the twitch_chat native library to sit next to this mod's .nrm file in \
-the mods folder.
+Requires the banjo_chatooie_native library to sit next to this mod's .nrm file \
+in the mods folder.
 
 Licensed CC BY-SA 4.0: share and adapt freely, with credit, keeping derivatives \
 under the same terms."""
 
-short_description = "Shows your Twitch chat on screen."
+short_description = "Beta: your Twitch chat talks through the game's text boxes."
 
 authors = [ "Lucas" ]
 
@@ -37,13 +41,13 @@ optional_dependencies = [ ]
 
 # The native half of the mod. `name` is not just a label: the runtime appends the
 # platform's library extension to it and looks for the result in the folder
-# CONTAINING the .nrm -- so `twitch_chat.so` goes in the mods folder, alongside
-# twitch_chat_integration.nrm, not inside it.
+# CONTAINING the .nrm -- so `banjo_chatooie_native.so` goes in the mods folder,
+# alongside banjo_chatooie.nrm, not inside it.
 #
 # Every function the MIPS side imports with RECOMP_IMPORT(".", ...) has to be
 # listed here, or the mod fails to load with an invalid import error.
 native_libraries = [
-    { name = "twitch_chat", funcs = [
+    { name = "banjo_chatooie_native", funcs = [
         "twitch_chat_start",
         "twitch_chat_stop",
         "twitch_chat_get_state",
@@ -165,7 +169,7 @@ default = "On"
 
 elf_path = "build/mod.elf"
 
-mod_filename = "twitch_chat_integration"
+mod_filename = "banjo_chatooie"
 
 # Reference symbol files.
 func_reference_syms_file = "BanjoRecompSyms/bk.us.rev0.syms.toml"

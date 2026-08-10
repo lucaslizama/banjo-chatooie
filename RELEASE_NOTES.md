@@ -1,3 +1,7 @@
+**Beta.** Tested by two people on one machine and never on a live stream. The
+channel points feature has only ever been tested against a stand-in, never a real
+Twitch account. Bug reports are the point of this release.
+
 Puts your Twitch chat into Banjo-Kazooie: Recompiled. Messages scroll in a panel
 in the corner, and characters from the game can read them aloud in the game's own
 text boxes, with the right portrait and the right voice.
@@ -12,8 +16,8 @@ and Mumbo says it. Around fifty characters are available.
 
 Unzip and copy **both** files into your mods folder:
 
-    twitch_chat_integration.nrm
-    twitch_chat.so
+    banjo_chatooie.nrm
+    banjo_chatooie_native.so
 
 On Linux that is `~/.config/BanjoRecompiled/mods`. They must sit next to each
 other: the mod will not load without the native library.
@@ -28,8 +32,8 @@ This build is **Linux x86-64 only**.
 The `.nrm` itself is portable, but the mod also needs a native library built for
 your platform, and it will not load without one. Windows and macOS builds are not
 included because there was no toolchain to cross-compile them. Building from
-source on those platforms produces the same layout with `twitch_chat.dll` or
-`twitch_chat.dylib` in place of the `.so`. See `DEVELOPING.md` in the repository.
+source on those platforms produces the same layout with `banjo_chatooie_native.dll` or
+`banjo_chatooie_native.dylib` in place of the `.so`. See `DEVELOPING.md` in the repository.
 
 ## About the connection
 

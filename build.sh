@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build both halves of the mod and package them.
 #
-#   native/   host shared library (twitch_chat.so) -- talks to Twitch
-#   src/      MIPS mod code (twitch_chat_integration.nrm) -- draws the overlay
+#   native/   host shared library (banjo_chatooie_native.so) -- talks to Twitch
+#   src/      MIPS mod code (banjo_chatooie.nrm) -- draws the overlay
 #
 # The runtime looks for the native library in the folder CONTAINING the .nrm, so
 # the two files have to be deployed side by side. --deploy copies both.
@@ -46,7 +46,7 @@ echo "==> packaging"
 NRM=$(ls build/*.nrm)
 
 LIB=""
-for candidate in build/native/twitch_chat.so build/native/twitch_chat.dylib build/native/twitch_chat.dll; do
+for candidate in build/native/banjo_chatooie_native.so build/native/banjo_chatooie_native.dylib build/native/banjo_chatooie_native.dll; do
     if [ -f "$candidate" ]; then
         LIB="$candidate"
         break

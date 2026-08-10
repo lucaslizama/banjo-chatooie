@@ -1,6 +1,12 @@
-# Twitch Chat Integration
+# Banjo-Chatooie
 
 A mod for Banjo-Kazooie: Recompiled that puts your Twitch chat into the game.
+
+**This is a beta.** It has been tested by two people on one machine, and never on
+a live stream. The channel points feature in particular has never run against a
+real Twitch account, only against a stand-in. It should not break your game, and
+nothing it does touches your save file, but expect rough edges and please say
+what goes wrong.
 
 Two things happen with an incoming message. It scrolls in a small panel in the
 corner of the screen, and, if you want, a character from the game reads it aloud
@@ -17,8 +23,8 @@ it asks for permission separately. More on that below.)
 Copy both of these into your mods folder, which is
 `~/.config/BanjoRecompiled/mods` on Linux:
 
-- `twitch_chat_integration.nrm`
-- `twitch_chat.so`
+- `banjo_chatooie.nrm`
+- `banjo_chatooie_native.so`
 
 They have to sit next to each other. The mod will not load if the second file is
 missing, and putting it anywhere else has no effect.

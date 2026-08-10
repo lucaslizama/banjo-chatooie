@@ -69,7 +69,7 @@ jobs:
               echo "::error::$zip has no native library in it"
               fail=1
             fi
-            if ! unzip -l "$zip" | grep -q "twitch_chat_integration.nrm"; then
+            if ! unzip -l "$zip" | grep -q "banjo_chatooie.nrm"; then
               echo "::error::$zip has no .nrm in it"
               fail=1
             fi
@@ -88,5 +88,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/*.zip \
-            --title "Twitch Chat Integration $GITHUB_REF_NAME" \
+            --title "Banjo-Chatooie $GITHUB_REF_NAME" \
+            --prerelease \
             --notes-file RELEASE_NOTES.md
