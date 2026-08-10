@@ -117,3 +117,11 @@ affected, which is exactly our carrier.
   leave the game thread waiting out a backoff of up to 60 seconds.
 - Run 4: channel point redemptions, the only configuration the bisect has not
   cleared, and the one every crash so far occurred under.
+- The Thunderstore description. 0.2.0 shipped with "BETA, not yet
+  stream-tested", which is inaccurate and the wrong warning. The replacement is
+  already in release.sh and travels with the next upload, since the description
+  lives in the package manifest and cannot be edited after a version is
+  published.
+- Read the docs over properly. Several places still describe how things worked
+  earlier in the day rather than how they work now, and the rename left phrasing
+  in odd shapes. Worth a full pass rather than more spot fixes.
