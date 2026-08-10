@@ -236,6 +236,21 @@ class Twitch:
         log("created the reward %r for %d points" % (title, cost))
         return created["id"]
 
+    def rename_reward(self, reward_id, title):
+        """Retitles the reward we already own, keeping its id and its points cost.
+
+        Renaming rather than creating matters: ensure_reward finds a reward by
+        title, so a new title would leave the old reward sitting on the channel
+        with nothing watching it, and viewers able to redeem into the void.
+
+        Twitch requires a channel's reward titles to be unique, so this can fail
+        legitimately -- if the streamer already has another reward by that name.
+        """
+        self.call("PATCH", "/channel_points/custom_rewards",
+                  params={"broadcaster_id": self.broadcaster_id(), "id": reward_id},
+                  data={"title": title})
+        log("renamed the reward to %r" % title)
+
     def unfulfilled(self, reward_id):
         return self.call("GET", "/channel_points/custom_rewards/redemptions", params={
             "broadcaster_id": self.broadcaster_id(),
@@ -263,9 +278,12 @@ class Feed:
     machine, not a service.
     """
 
-    def __init__(self, port):
+    def __init__(self, port, on_line=None):
         self.clients = []
         self.lock = threading.Lock()
+        # Called with each line the mod sends up. The mod is the connecting side,
+        # so this is how a setting from the mod's own options screen reaches us.
+        self.on_line = on_line
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind(("127.0.0.1", port))
@@ -282,6 +300,29 @@ class Feed:
             with self.lock:
                 self.clients.append(conn)
             log("mod connected")
+            threading.Thread(target=self._read, args=(conn,), daemon=True).start()
+
+    def _read(self, conn):
+        """Reads upstream lines from one client until it goes away."""
+        buffer = b""
+        while True:
+            try:
+                chunk = conn.recv(4096)
+            except OSError:
+                return
+            if not chunk:
+                return
+            buffer += chunk
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                text = line.decode("utf-8", "replace").strip()
+                if text and self.on_line:
+                    try:
+                        self.on_line(text)
+                    except Exception as exc:               # never kill the reader
+                        log("ignoring bad upstream line %r (%s)" % (text, exc))
+            if len(buffer) > 8192:
+                buffer = b""
 
     def has_clients(self):
         with self.lock:
@@ -377,10 +418,36 @@ def main():
     log("watching %r on channel %s" % (args.reward_title,
                                        config.get("broadcaster_login", "?")))
 
-    feed = Feed(args.port)
+    # The mod sends "TITLE\t<text>" whenever its Reward Name setting is set or
+    # changed, so the reward can be named from the mod's options screen instead of
+    # a command line flag the streamer has to remember. Applied on the main thread
+    # rather than in the reader, so no API call happens off it.
+    wanted_title = [None]
+    title_lock = threading.Lock()
+
+    def on_upstream(line):
+        parts = line.split("\t", 1)
+        if len(parts) == 2 and parts[0] == "TITLE" and parts[1].strip():
+            with title_lock:
+                wanted_title[0] = parts[1].strip()
+
+    feed = Feed(args.port, on_line=on_upstream)
 
     while True:
         try:
+            with title_lock:
+                pending_title = wanted_title[0]
+                wanted_title[0] = None
+            if pending_title and pending_title != config.get("reward_title"):
+                try:
+                    twitch.rename_reward(reward_id, pending_title)
+                    config["reward_title"] = pending_title
+                    save_config(args.config, config)
+                except HttpError as exc:
+                    # Most likely the channel already has a reward by that name,
+                    # which Twitch refuses. Keep serving the old one.
+                    log("could not rename the reward to %r: %s" % (pending_title, exc))
+
             # Only consume redemptions when the mod is actually listening.
             # Fulfilling one with nobody connected throws away a message the
             # viewer paid points for; leaving it unfulfilled means it is still

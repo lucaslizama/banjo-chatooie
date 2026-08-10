@@ -29,9 +29,23 @@ It prints a URL and a code. Open the URL, type the code, approve. That's the onl
 interactive step — the token is saved and refreshed automatically afterwards.
 
 On first run it also creates a channel point reward called **"Say something in
-Banjo-Kazooie"** for 100 points, with viewer text input enabled. Rename it, change
-the cost or the prompt in your Creator Dashboard freely — it's yours now, and the
-script finds it again by title.
+Banjo-Kazooie"** for 100 points, with viewer text input enabled.
+
+**The name comes from the mod's options.** Change **Reward Name** in the mod's
+option screen and the reward is renamed on your channel within a few seconds, while
+you play. That is the place to set it; `--reward-title` only decides the name used
+before the mod has said otherwise. Renaming the reward in your Creator Dashboard
+will be undone the next time the mod tells the script what it should be called.
+
+Its cost and its prompt are yours — change those in the dashboard freely. Only the
+name is managed here.
+
+**You cannot point this at a reward you made yourself.** Twitch only lets an
+application see or poll redemptions for rewards that same application created, so a
+reward you set up in the dashboard is invisible to this script, permanently. That
+restriction is also the only reason this can watch redemptions at all without
+running an EventSub server. So: let it create its reward, then rename that one to
+whatever you like.
 
 After that, just:
 

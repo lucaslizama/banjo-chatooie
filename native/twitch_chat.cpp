@@ -35,6 +35,15 @@ RECOMP_EXPORT void twitch_redemptions_start(uint8_t* rdram, recomp_context* ctx)
     twitch::redemptions().start((int)arg_u32(ctx, 0));
 }
 
+// void twitch_redemptions_set_reward_title(const char* title)
+//
+// Names the reward the helper should watch. Called from the settings poll, so it
+// is given the same value repeatedly and only acts on changes.
+RECOMP_EXPORT void twitch_redemptions_set_reward_title(uint8_t* rdram, recomp_context* ctx) {
+    std::string title = arg_string(rdram, ctx, 0, 160);
+    twitch::redemptions().set_reward_title(title.c_str());
+}
+
 // void twitch_redemptions_stop(void)
 RECOMP_EXPORT void twitch_redemptions_stop(uint8_t* rdram, recomp_context* ctx) {
     (void)rdram;

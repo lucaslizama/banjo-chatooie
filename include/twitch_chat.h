@@ -36,6 +36,10 @@ RECOMP_IMPORT(".", int twitch_chat_next_message(char* user_out, char* text_out, 
 // twitch_chat_next_message with TWITCH_MSG_REDEEMED set.
 RECOMP_IMPORT(".", void twitch_redemptions_start(int port));
 RECOMP_IMPORT(".", void twitch_redemptions_stop());
+
+// Names the channel point reward the helper should watch, so it can be set from
+// the mod's options screen. Safe to call every poll; only changes go on the wire.
+RECOMP_IMPORT(".", void twitch_redemptions_set_reward_title(const char* title));
 RECOMP_IMPORT(".", int twitch_redemptions_get_state());
 
 #endif // TWITCH_CHAT_H

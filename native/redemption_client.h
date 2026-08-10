@@ -35,10 +35,18 @@ public:
 
     State state() const { return state_.load(std::memory_order_relaxed); }
 
+    // Names the channel point reward the helper should watch, so it can be set
+    // from the mod's options screen rather than a command line flag. Sent on the
+    // next connect, and immediately if already connected. Safe to call every poll
+    // with an unchanged value; only changes go on the wire.
+    void set_reward_title(const char* title);
+
     bool pop(ChatMessage& out);
 
 private:
     void run(int port);
+    // Writes the current title upstream. Returns false if the socket is gone.
+    bool send_reward_title(intptr_t fd);
     void handle_line(const std::string& line);
     void set_active_socket(intptr_t fd);
     void interrupt_active_socket();
@@ -52,6 +60,11 @@ private:
 
     intptr_t active_socket_ = -1;
     std::mutex socket_mutex_;
+
+    // Fixed buffer, not a std::string: set_reward_title runs on the game thread
+    // every settings poll, and that path is kept allocation-free.
+    char reward_title_[160] = {0};
+    std::mutex title_mutex_;
 
     std::mutex wake_mutex_;
     std::condition_variable wake_;

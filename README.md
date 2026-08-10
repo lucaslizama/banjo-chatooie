@@ -62,7 +62,8 @@ narrow that to you and your moderators if chat gets carried away.
 
 `Channel point reward` uses a proper channel points redemption. It needs Twitch
 Affiliate and a small script running alongside the game, described in
-`helper/README.md`.
+`helper/README.md`. **Reward Name** sets what the reward is called on your channel,
+and renaming it there renames it on Twitch while you play.
 
 `Highlight My Message` uses the built-in reward of that name. Also Affiliate only.
 

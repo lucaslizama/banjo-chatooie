@@ -151,6 +151,76 @@ void RedemptionClient::handle_line(const std::string& line) {
     queue_.push(msg);
 }
 
+void RedemptionClient::set_reward_title(const char* title) {
+    if (title == nullptr) {
+        return;
+    }
+
+    intptr_t fd = -1;
+    {
+        std::lock_guard<std::mutex> lock(title_mutex_);
+        size_t i = 0;
+        bool same = true;
+        for (; title[i] != '\0' && i + 1 < sizeof(reward_title_); i++) {
+            if (reward_title_[i] != title[i]) {
+                same = false;
+            }
+            reward_title_[i] = title[i];
+        }
+        if (reward_title_[i] != '\0') {
+            same = false;
+        }
+        reward_title_[i] = '\0';
+        if (same) {
+            return;             // called every poll; only changes go on the wire
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(socket_mutex_);
+        fd = active_socket_;
+    }
+    if (fd != -1) {
+        send_reward_title(fd);
+    }
+}
+
+// Tabs and newlines are the framing, so a title cannot contain them. The helper
+// also strips them, but sending a clean line keeps the protocol honest from both
+// ends.
+bool RedemptionClient::send_reward_title(intptr_t fd) {
+    char line[sizeof(reward_title_) + 8];
+    size_t n = 0;
+
+    line[n++] = 'T'; line[n++] = 'I'; line[n++] = 'T';
+    line[n++] = 'L'; line[n++] = 'E'; line[n++] = '\t';
+    {
+        std::lock_guard<std::mutex> lock(title_mutex_);
+        if (reward_title_[0] == '\0') {
+            return true;        // nothing configured yet; nothing to say
+        }
+        for (size_t i = 0; reward_title_[i] != '\0'; i++) {
+            char c = reward_title_[i];
+            line[n++] = (c == '\t' || c == '\n' || c == '\r') ? ' ' : c;
+        }
+    }
+    line[n++] = '\n';
+
+    size_t sent = 0;
+    while (sent < n) {
+#if defined(_WIN32)
+        int written = ::send((socket_t)fd, line + sent, (int)(n - sent), 0);
+#else
+        ssize_t written = ::send((socket_t)fd, line + sent, n - sent, MSG_NOSIGNAL);
+#endif
+        if (written <= 0) {
+            return false;
+        }
+        sent += (size_t)written;
+    }
+    return true;
+}
+
 void RedemptionClient::run(int port) {
     // The helper is usually started by hand, so not finding it is normal rather
     // than an error. Back off quietly and keep trying.
@@ -166,6 +236,10 @@ void RedemptionClient::run(int port) {
             backoff_seconds = 2;
             set_active_socket((intptr_t)fd);
             std::fprintf(stderr, "[twitch-chat] redemption helper connected on port %d\n", port);
+
+            // Resend on every connect, not just the first. The helper may have
+            // been restarted since, and it has no memory of what we asked for.
+            send_reward_title((intptr_t)fd);
 
             std::string buffer;
             char chunk[2048];

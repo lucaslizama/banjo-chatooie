@@ -272,6 +272,16 @@ RECOMP_HOOK("mainLoop") void twitch_chat_tick(void) {
                     twitch_redemptions_stop();
                 }
             }
+            // Pushed while the reader is wanted, so a name typed before the
+            // helper is running still reaches it once it connects. The native
+            // side keeps the last value and only puts changes on the wire.
+            if (wanted) {
+                char* title = recomp_get_config_string("reward_title");
+                if (title != NULL) {
+                    twitch_redemptions_set_reward_title(title);
+                    recomp_free_config_string(title);
+                }
+            }
         }
 
         // Only touch the UI when something actually changed. Re-applying every

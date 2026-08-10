@@ -55,6 +55,7 @@ native_libraries = [
         "twitch_chat_next_message",
         "twitch_redemptions_start",
         "twitch_redemptions_stop",
+        "twitch_redemptions_set_reward_title",
         "twitch_redemptions_get_state",
     ] }
 ]
@@ -137,6 +138,13 @@ description = "What makes a game character read a message aloud in a text box. B
 type = "Enum"
 options = [ "Off", "Channel point reward", "Highlight My Message", "!say command", "Every message" ]
 default = "!say command"
+
+[[manifest.config_options]]
+id = "reward_title"
+name = "Reward Name"
+description = "The name of the channel point reward, for the 'Channel point reward' trigger. The helper script creates a reward with this name, and renames it if you change this. Twitch requires reward names to be unique on your channel."
+type = "String"
+default = "Say something in Banjo-Kazooie"
 
 [[manifest.config_options]]
 id = "speak_permission"
