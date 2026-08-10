@@ -21,6 +21,13 @@
 
 namespace twitch {
 
+// Cleans a chat message for display: control characters become spaces, runs of
+// whitespace collapse, and the result is truncated to `max_len` bytes WITHOUT
+// ever splitting a UTF-8 sequence. That last part matters -- the overlay hands
+// this straight to the UI's text renderer, and half a character is not valid
+// UTF-8. Invalid input sequences are dropped rather than passed through.
+std::string sanitize_text(const std::string& in, size_t max_len);
+
 enum class State : int {
     Idle = 0,
     Connecting = 1,

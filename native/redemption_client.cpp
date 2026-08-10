@@ -33,33 +33,6 @@ constexpr size_t kMaxTextLen = 240;
 // Short, so a stop request is noticed promptly.
 constexpr int kRecvTimeoutSeconds = 2;
 
-std::string sanitize(const std::string& in, size_t max_len) {
-    std::string out;
-    out.reserve(in.size());
-    bool prev_space = false;
-    for (unsigned char c : in) {
-        if (c < 0x20 || c == 0x7F) {
-            c = ' ';
-        }
-        if (c == ' ') {
-            if (prev_space || out.empty()) {
-                continue;
-            }
-            prev_space = true;
-        } else {
-            prev_space = false;
-        }
-        out += (char)c;
-        if (out.size() >= max_len) {
-            break;
-        }
-    }
-    while (!out.empty() && out.back() == ' ') {
-        out.pop_back();
-    }
-    return out;
-}
-
 socket_t connect_loopback(int port) {
     socket_t fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd == INVALID_SOCKET_VALUE) {
@@ -162,8 +135,8 @@ void RedemptionClient::handle_line(const std::string& line) {
     }
 
     ChatMessage msg;
-    msg.user = sanitize(line.substr(0, tab), kMaxUserLen);
-    msg.text = sanitize(line.substr(tab + 1), kMaxTextLen);
+    msg.user = sanitize_text(line.substr(0, tab), kMaxUserLen);
+    msg.text = sanitize_text(line.substr(tab + 1), kMaxTextLen);
     msg.color = -1;
     msg.highlighted = false;
     msg.redeemed = true;

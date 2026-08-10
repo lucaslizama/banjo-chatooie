@@ -58,36 +58,6 @@ void log(const char* fmt, ...) {
     va_end(args);
 }
 
-// Strips control characters and collapses runs of whitespace. Chat is arbitrary
-// user input and goes straight into the UI, so it gets cleaned before it is
-// queued rather than trusted.
-std::string sanitize(const std::string& in, size_t max_len) {
-    std::string out;
-    out.reserve(in.size());
-    bool prev_space = false;
-    for (unsigned char c : in) {
-        if (c < 0x20 || c == 0x7F) {
-            c = ' ';
-        }
-        if (c == ' ') {
-            if (prev_space || out.empty()) {
-                continue;
-            }
-            prev_space = true;
-        } else {
-            prev_space = false;
-        }
-        out += (char)c;
-        if (out.size() >= max_len) {
-            break;
-        }
-    }
-    while (!out.empty() && out.back() == ' ') {
-        out.pop_back();
-    }
-    return out;
-}
-
 int parse_hex_color(const std::string& value) {
     // Twitch sends "#RRGGBB", or an empty string for chatters who never set one.
     if (value.size() != 7 || value[0] != '#') {
@@ -198,6 +168,71 @@ std::string normalize_channel(const std::string& channel) {
 }
 
 } // namespace
+
+std::string sanitize_text(const std::string& in, size_t max_len) {
+    std::string out;
+    out.reserve(in.size());
+    bool prev_space = false;
+
+    size_t i = 0;
+    while (i < in.size()) {
+        unsigned char lead = (unsigned char)in[i];
+
+        // How many bytes this character claims, and whether that is even legal.
+        size_t length;
+        if (lead < 0x80) {
+            length = 1;
+        } else if ((lead & 0xE0) == 0xC0) {
+            length = 2;
+        } else if ((lead & 0xF0) == 0xE0) {
+            length = 3;
+        } else if ((lead & 0xF8) == 0xF0) {
+            length = 4;
+        } else {
+            i++;                        // stray continuation byte or bad lead
+            continue;
+        }
+
+        if (i + length > in.size()) {
+            break;                      // truncated sequence at the end
+        }
+        bool valid = true;
+        for (size_t k = 1; k < length; k++) {
+            if (((unsigned char)in[i + k] & 0xC0) != 0x80) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) {
+            i++;
+            continue;
+        }
+
+        // Control characters become a space, and runs of whitespace collapse.
+        if (length == 1 && (lead < 0x20 || lead == 0x7F || lead == ' ')) {
+            if (!prev_space && !out.empty()) {
+                out += ' ';
+                prev_space = true;
+            }
+            i += length;
+            continue;
+        }
+
+        // Stop on a character boundary. Cutting here mid-sequence would hand
+        // the UI half a character, which is not valid UTF-8.
+        if (out.size() + length > max_len) {
+            break;
+        }
+        out.append(in, i, length);
+        prev_space = false;
+        i += length;
+    }
+
+    while (!out.empty() && out.back() == ' ') {
+        out.pop_back();
+    }
+    return out;
+}
 
 // Namespace scope rather than a function-local static, deliberately.
 //
@@ -467,8 +502,8 @@ void IrcClient::handle_line(const std::string& line, int socket_fd, const std::s
     }
 
     ChatMessage msg;
-    msg.user = sanitize(user, kMaxUserLen);
-    msg.text = sanitize(text, kMaxTextLen);
+    msg.user = sanitize_text(user, kMaxUserLen);
+    msg.text = sanitize_text(text, kMaxTextLen);
     msg.color = parse_hex_color(tag_value(tags, "color"));
     msg.highlighted = tag_value(tags, "msg-id") == "highlighted-message";
 
