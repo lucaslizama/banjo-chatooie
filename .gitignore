@@ -19,3 +19,6 @@ tools/RecompModTool.exe
 # let one land in the repo even if someone points --config at the tree.
 twitch_redemptions.json
 *.token
+
+# Release archives are built artifacts, not sources.
+dist/
