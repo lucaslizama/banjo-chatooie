@@ -29,10 +29,9 @@ done
 # Package identity on Thunderstore. Letters, digits and underscores only.
 TS_NAME="BanjoChatooie"
 TS_WEBSITE="https://github.com/lucaslizama/banjo-chatooie"
-# Thunderstore shows this above everything else, so it has to stay true. It said
-# "BETA, and it can still crash" until 0.3.0, which was honest at the time and
-# became stale the moment the crash was fixed. Revisit it at every release.
-TS_DESCRIPTION="Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes, with their portraits and voices. Chat picks who speaks. Beta, but the 0.2.0 crash is fixed."
+# Thunderstore shows this above everything else. Say what the mod is and what it
+# does -- not what changed in this version, which belongs in the release notes.
+TS_DESCRIPTION="Your Twitch chat appears in game, and characters read messages aloud in Banjo-Kazooie's own text boxes, with their portraits and voices. Chat picks who speaks."
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
 if [ -z "$VERSION" ]; then

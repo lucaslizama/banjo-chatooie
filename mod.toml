@@ -10,21 +10,18 @@ version = "0.4.0"
 display_name = "Banjo-Chatooie (Beta)"
 
 description = """
-Shows your Twitch chat on screen while you play, and lets characters from the \
-game read messages aloud in Banjo-Kazooie's own text boxes, with their portraits \
-and their voices. Chat picks who speaks.
+Puts your Twitch chat into the game. Messages scroll in a panel in the corner of \
+the screen, and characters from the game can read them aloud in Banjo-Kazooie's \
+own text boxes, with their portraits and their voices. Chat picks who speaks.
 
     !say mumbo: hello banjo
 
-Set your channel name in this mod's options and chat appears in the corner of \
-the screen. Seventy-four characters can be asked for by name.
+Set your channel name in this mod's options and chat appears in the corner. \
+Seventy-four characters can be asked for by name.
 
 The connection is anonymous and read-only -- the mod never asks for a Twitch \
 account, password or OAuth token, and it cannot send messages. Channel point \
 redemptions are optional and ask for permission separately.
-
-Beta: tested by two people, never on a live stream. The crash present in 0.2.0 \
-is fixed.
 
 Requires the banjo_chatooie_native library to sit next to this mod's .nrm file \
 in the mods folder.
