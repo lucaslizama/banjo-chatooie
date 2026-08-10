@@ -109,6 +109,10 @@ extern struct {
     s32 index;
 } s_dialogBin;
 extern s32 code94620_func_8031B5B0(void);
+extern void func_803114D0(void);        // starts closing the current dialogue
+extern s32 gcdialog_showDialogConditional(s32 text_id, s32 arg1, f32* pos,
+        ActorMarker* marker, void (*callback)(ActorMarker*, s32, s32),
+        void (*arg5)(ActorMarker*, s32, s32), s32 arg6);
 extern s32 gcdialog_hasCurrentTextId(void);
 extern s32 getGameMode(void);
 extern s32 map_get(void);
@@ -134,12 +138,66 @@ static int is_safe_map(s32 map) {
     return 1;
 }
 
-// Frames the dialogue system must have been idle before we inject. A cutscene
-// pauses between its own lines, and starting ours in one of those gaps is the
-// same corruption as interrupting mid-line.
-#define SPEAK_IDLE_FRAMES 30
+// Frames the dialogue system must have been idle before we inject. Cutscenes and
+// scripted events like Bottles' tutorials pause between their own boxes, and
+// starting ours in one of those gaps can take the slot the game was about to
+// use, leaving its script waiting for a box it never gets. Three seconds of
+// quiet at 30fps is a lot more conservative than the half second it was.
+#define SPEAK_IDLE_FRAMES 90
 
 static int sIdleFrames = 0;
+
+// True while a box we injected is on screen.
+static int sOursShowing = 0;
+
+// The game's own dialogue always wins. If it asks for one while ours is up, its
+// request would just return 0 and be dropped, and any script waiting on that box
+// waits forever -- which is a softlock, reachable from something as ordinary as
+// a Bottles tutorial. Instead we take its arguments, close our box, and re-issue
+// the request for it once the dialogue system is free.
+static struct {
+    int pending;
+    s32 text_id;
+    s32 arg1;
+    f32 position[3];
+    int has_position;
+    ActorMarker* marker;
+    void (*callback)(ActorMarker*, s32, s32);
+    void (*arg5)(ActorMarker*, s32, s32);
+    s32 arg6;
+} sDeferred;
+
+RECOMP_HOOK("gcdialog_showDialogConditional") void speak_yield_to_game(
+        s32 text_id, s32 arg1, f32* pos, ActorMarker* marker,
+        void (*callback)(ActorMarker*, s32, s32),
+        void (*arg5)(ActorMarker*, s32, s32), s32 arg6) {
+    if (!sOursShowing || text_id == SPEAK_CARRIER_ASSET || sDeferred.pending) {
+        return;
+    }
+    if (!gcdialog_hasCurrentTextId()) {
+        return;             // nothing in the way; the game's call will succeed
+    }
+
+    sDeferred.pending = 1;
+    sDeferred.text_id = text_id;
+    sDeferred.arg1 = arg1;
+    sDeferred.marker = marker;
+    sDeferred.callback = callback;
+    sDeferred.arg5 = arg5;
+    sDeferred.arg6 = arg6;
+
+    // Copy the position rather than keeping the pointer, which may be a
+    // temporary belonging to whatever actor is talking.
+    sDeferred.has_position = (pos != NULL);
+    if (pos != NULL) {
+        sDeferred.position[0] = pos[0];
+        sDeferred.position[1] = pos[1];
+        sDeferred.position[2] = pos[2];
+    }
+
+    recomp_printf("[twitch-chat] yielding to game dialogue %04X\n", (int)text_id);
+    func_803114D0();        // begin closing ours
+}
 
 typedef struct {
     const char* name;
@@ -298,13 +356,15 @@ static char ascii_fold(unsigned int codepoint) {
     }
 }
 
-// Returns how many characters made it into the box. Zero means the message was
-// entirely characters the font can't draw -- all-emoji, or Japanese -- and there
-// is nothing worth opening a box for.
+// Returns how many VISIBLE characters made it into the box, not counting spaces.
+// Zero means the message was entirely characters the font can't draw, or nothing
+// but whitespace once they were removed, and there is nothing worth opening a
+// box for.
 static int build_blob(const char* text, int portrait) {
     int i = 0;
     int length_index;
     int written = 0;
+    int visible = 0;        // non-space characters; spaces alone are not a message
     int run = 0;
     int j;
 
@@ -380,6 +440,7 @@ static int build_blob(const char* text, int portrait) {
             if (c >= 'a' && c <= 'z') {
                 c = (char)(c - 'a' + 'A');
             }
+            visible++;
         }
 
         sBlob[i++] = (unsigned char)c;
@@ -401,7 +462,10 @@ static int build_blob(const char* text, int portrait) {
     sBlob[i++] = 1;
     sBlob[i++] = 0;
 
-    return written;
+    // Spaces on their own are not worth a text box. A message of emoji with a
+    // space in it folds down to exactly that, and opening a box containing
+    // nothing but a space looks like the game has hung.
+    return visible;
 }
 
 void speak_queue(const char* user, const char* text, int default_portrait, int show_name) {
@@ -467,8 +531,28 @@ void speak_tick(void) {
     // D_8027A130 == 3 is the in-game state that mainLoop runs the world update
     // in; anything else (boot, file select, cutscene transitions) has no
     // dialogue system to talk to.
+    if (gcdialog_hasCurrentTextId()) {
+        sIdleFrames = 0;
+        return;
+    }
+
+    // Ours is gone the moment the dialogue system reports nothing showing.
+    sOursShowing = 0;
+
+    // The game asked for a box while ours was up. Give it what it asked for,
+    // before considering anything of ours.
+    if (sDeferred.pending) {
+        sDeferred.pending = 0;
+        gcdialog_showDialogConditional(sDeferred.text_id, sDeferred.arg1,
+                sDeferred.has_position ? sDeferred.position : NULL,
+                sDeferred.marker, sDeferred.callback, sDeferred.arg5,
+                sDeferred.arg6);
+        sIdleFrames = 0;
+        return;
+    }
+
     if (D_8027A130 != 3 || getGameMode() != GAME_MODE_3_NORMAL ||
-        gcdialog_hasCurrentTextId() || !is_safe_map(map_get())) {
+        !is_safe_map(map_get())) {
         sIdleFrames = 0;
         return;
     }
@@ -502,6 +586,7 @@ void speak_tick(void) {
     }
 
     sIdleFrames = 0;
+    sOursShowing = 1;
 
     // The box now holds pointers into the buffer we just filled, so the next
     // message must be built into the other one.
