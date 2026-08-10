@@ -20,9 +20,10 @@ a library the mod ships with. Every imported name must also appear in `mod.toml`
 under `native_libraries`, or the mod fails to load with an invalid import error.
 
 The two files are deployed side by side, not nested. The runtime builds the
-library filename from the manifest name (`twitch_chat` becomes `banjo_chatooie_native.so`
-on Linux, `.dll` on Windows, `.dylib` on macOS) and looks for it in the folder
-*containing* the `.nrm`. Putting it inside the `.nrm` does nothing at all.
+library filename from the manifest name, so `banjo_chatooie_native` becomes
+`banjo_chatooie_native.so` on Linux, `.dll` on Windows and `.dylib` on macOS, and
+looks for it in the folder *containing* the `.nrm`. Putting it inside the `.nrm`
+does nothing at all.
 
 Channel point redemptions are a third piece, `helper/twitch_redemptions.py`,
 described in `helper/README.md`. They are not carried over IRC, so they arrive
@@ -66,9 +67,6 @@ The same thing can be done locally:
 
 The project is CC BY-SA 4.0; `NOTICE` records that and the CC0 status of the
 vendored recomp headers and submodules.
-
-```
-```
 
 Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
 
@@ -159,7 +157,7 @@ blob.
 **Never inject during a cutscene.** Cutscenes drive the dialogue system
 themselves, and starting a box in a gap between their lines corrupts it. The mod
 refuses on cutscene maps (`0x1E` to `0x20`, `0x7B` to `0x8A`, and everything from
-`0x91` up) and waits for 30 consecutive idle frames first.
+`0x91` up) and waits for 90 consecutive idle frames, three seconds, first.
 
 One more, less dangerous but easy to trip over: `loadDialogStrings` copies the
 portrait and length bytes into its own allocation, but keeps `str` as a pointer
