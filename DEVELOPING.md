@@ -73,7 +73,7 @@ for them to fix a crash, and do not read "zero PLT entries" as a safety property
 Bump `version` in `mod.toml`, then push a tag that matches it:
 
 ```
-git tag v0.4.0 && git push origin v0.4.0
+git tag v0.4.1 && git push origin v0.4.1
 ```
 
 A GitHub Action builds both platforms and publishes them. It refuses to run if
@@ -96,8 +96,8 @@ Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
 
 The version must always go up. Thunderstore refuses a version number it has
 already seen, and a GitHub tag would have to be moved, so any change after a
-release means a new number rather than a rebuild of the old one. 0.1.0, 0.2.0 and
-0.3.0 are published; the next one is 0.4.0.
+release means a new number rather than a rebuild of the old one. 0.1.0, 0.2.0,
+0.3.0 and 0.4.0 are published; the next one is 0.4.1.
 
 There is no macOS archive. Cross-compiling for macOS needs the Xcode SDK, which
 Apple does not permit redistributing, so `.dylib` builds have to happen on a Mac.
