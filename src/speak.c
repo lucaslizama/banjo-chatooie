@@ -113,6 +113,10 @@ extern struct {
 } s_dialogBin;
 extern s32 code94620_func_8031B5B0(void);
 extern void func_803114D0(void);        // asks the current dialogue to close
+// Not in the decomp headers, unlike gcdialog_showDialog which wraps it.
+extern s32 gcdialog_showDialogConditional(s32 text_id, s32 arg1, f32* pos,
+        ActorMarker* marker, void (*callback)(ActorMarker*, s32, s32),
+        void (*arg5)(ActorMarker*, s32, s32), s32 arg6);
 // gctransition_active is already declared in bk-decomp/include/gc/gctransition.h
 extern s32 gcdialog_hasCurrentTextId(void);
 extern s32 getGameMode(void);
@@ -166,6 +170,37 @@ static s32 sLastMap = -1;
 static int sOursShowing = 0;
 static SpeakRequest sShowing;
 
+// Set only while our own gcdialog_showDialog call is in flight.
+//
+// The hook used to recognise our own call by comparing text_id against
+// SPEAK_CARRIER_ASSET. That carrier is a real asset -- Blubber's first-meeting
+// line -- so when Blubber genuinely asked to speak, the hook mistook him for us
+// and refused to yield. He was the only NPC in the game that could not interrupt
+// a chat box, purely because we borrowed his line. A flag cannot be confused
+// with anyone.
+static int sInjecting = 0;
+
+// A request the game made while our box was up, to be re-issued once the
+// dialogue system is free.
+//
+// showDialogConditional keeps its own queue, but only when the caller passes
+// 0x04 or 0x20 in arg1. Molehills and Leaky do; Brentilda does not, so her
+// request was simply dropped and she could not be talked to at all. Re-issuing
+// covers the callers that do not queue themselves, and is harmless for the ones
+// that do, since a caller that queued will have been served by then and our
+// pending flag is cleared either way.
+static struct {
+    int pending;
+    s32 text_id;
+    s32 arg1;
+    f32 position[3];
+    int has_position;
+    ActorMarker* marker;
+    void (*callback)(ActorMarker*, s32, s32);
+    void (*arg5)(ActorMarker*, s32, s32);
+    s32 arg6;
+} sDeferred;
+
 // Puts a request back at the front of the queue, keeping its place in order, so
 // an interrupted message is spoken once the story text is done rather than lost.
 static void requeue_front(const SpeakRequest* req) {
@@ -186,13 +221,31 @@ RECOMP_HOOK("gcdialog_showDialogConditional") void speak_yield_to_game(
         s32 text_id, s32 arg1, f32* pos, ActorMarker* marker,
         void (*callback)(ActorMarker*, s32, s32),
         void (*arg5)(ActorMarker*, s32, s32), s32 arg6) {
-    (void)arg1; (void)pos; (void)marker; (void)callback; (void)arg5; (void)arg6;
-
-    if (!sOursShowing || text_id == SPEAK_CARRIER_ASSET) {
+    if (sInjecting) {
+        return;             // that is us asking; do not yield to ourselves
+    }
+    if (!sOursShowing || sDeferred.pending) {
         return;
     }
     if (!gcdialog_hasCurrentTextId()) {
         return;             // nothing in the way, the game's call will succeed
+    }
+
+    // Remember what the game wanted, so it can be re-issued whether or not the
+    // caller queues for itself. The position is copied rather than kept by
+    // pointer, since it may belong to whatever actor is talking.
+    sDeferred.pending = 1;
+    sDeferred.text_id = text_id;
+    sDeferred.arg1 = arg1;
+    sDeferred.marker = marker;
+    sDeferred.callback = callback;
+    sDeferred.arg5 = arg5;
+    sDeferred.arg6 = arg6;
+    sDeferred.has_position = (pos != NULL);
+    if (pos != NULL) {
+        sDeferred.position[0] = pos[0];
+        sDeferred.position[1] = pos[1];
+        sDeferred.position[2] = pos[2];
     }
 
     requeue_front(&sShowing);
@@ -574,17 +627,22 @@ void speak_tick(void) {
             sOursShowing = 0;
             func_803114D0();
         }
+        // Any request we captured belongs to the area being left behind.
+        sDeferred.pending = 0;
         sIdleFrames = 0;
         return;
     }
 
-    // A map change resets everything: whatever we thought was on screen belongs
-    // to the world that just went away.
+    // A map change resets everything: whatever we thought was on screen, and
+    // anything we captured, belongs to the world that just went away. Checked
+    // before the re-issue below, so a stale request is never replayed into a
+    // world it does not belong to.
     {
         s32 map = map_get();
         if (map != sLastMap) {
             sLastMap = map;
             sOursShowing = 0;
+            sDeferred.pending = 0;
             sIdleFrames = 0;
             return;
         }
@@ -592,6 +650,20 @@ void speak_tick(void) {
             sIdleFrames = 0;
             return;
         }
+    }
+
+    // The game asked for a box while ours was up. Give it what it asked for
+    // before considering anything of ours. A caller that queues for itself will
+    // already have been served, in which case this is a duplicate the dialogue
+    // system declines harmlessly.
+    if (sDeferred.pending) {
+        sDeferred.pending = 0;
+        gcdialog_showDialogConditional(sDeferred.text_id, sDeferred.arg1,
+                sDeferred.has_position ? sDeferred.position : NULL,
+                sDeferred.marker, sDeferred.callback, sDeferred.arg5,
+                sDeferred.arg6);
+        sIdleFrames = 0;
+        return;
     }
 
     if (sIdleFrames < SPEAK_IDLE_FRAMES) {
@@ -614,12 +686,17 @@ void speak_tick(void) {
     }
 
     sHijack = 1;
-    if (!gcdialog_showDialog(SPEAK_CARRIER_ASSET, 0, NULL, NULL, NULL, NULL)) {
-        // The game refused (a cutscene flag, most likely). Leave the message
-        // queued, and require a fresh idle stretch before trying again.
-        sHijack = 0;
-        sIdleFrames = 0;
-        return;
+    sInjecting = 1;
+    {
+        int shown = gcdialog_showDialog(SPEAK_CARRIER_ASSET, 0, NULL, NULL, NULL, NULL);
+        sInjecting = 0;
+        if (!shown) {
+            // The game refused (a cutscene flag, most likely). Leave the
+            // message queued, and require a fresh idle stretch before retrying.
+            sHijack = 0;
+            sIdleFrames = 0;
+            return;
+        }
     }
 
     sIdleFrames = 0;

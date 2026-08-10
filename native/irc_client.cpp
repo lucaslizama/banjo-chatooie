@@ -310,7 +310,14 @@ void IrcClient::stop() {
         return;
     }
     interrupt_active_socket();
-    wake_.notify_all();
+    // Notify while holding wake_mutex_. Without it, a reader thread that has just
+    // evaluated its predicate and is descending into wait_for() misses the
+    // wakeup and sleeps out its whole backoff, which grows to 30-60 seconds --
+    // and join() below blocks the GAME thread for that long.
+    {
+        std::lock_guard<std::mutex> lock(wake_mutex_);
+        wake_.notify_all();
+    }
     if (thread_.joinable()) {
         thread_.join();
     }
