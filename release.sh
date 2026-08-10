@@ -16,8 +16,12 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 PUBLISH=0
+WINDOWS=0
 for arg in "$@"; do
-    [ "$arg" = "--publish" ] && PUBLISH=1
+    case "$arg" in
+        --publish) PUBLISH=1 ;;
+        --windows) WINDOWS=1 ;;
+    esac
 done
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' mod.toml | head -1)
@@ -32,31 +36,57 @@ case "$(uname -s)" in
     *)      PLATFORM="windows-x86_64";    LIB="twitch_chat.dll"   ;;
 esac
 
-NAME="twitch-chat-integration-v${VERSION}-${PLATFORM}"
-STAGE="dist/$NAME"
-
 echo "==> building"
 ./build.sh
 
-echo "==> staging $NAME"
-rm -rf "$STAGE" "dist/$NAME.zip"
-mkdir -p "$STAGE/helper"
+if [ "$WINDOWS" -eq 1 ]; then
+    if ! command -v x86_64-w64-mingw32-g++ >/dev/null; then
+        echo "mingw-w64 not installed; cannot cross-compile the Windows library." >&2
+        echo "  sudo pacman -S --needed mingw-w64-gcc" >&2
+        exit 1
+    fi
+    echo "==> building the Windows library"
+    make -C native TARGET_OS=windows -j"$(nproc)"
+fi
 
-cp "build/twitch_chat_integration.nrm" "$STAGE/"
-cp "build/native/$LIB" "$STAGE/"
-cp README.md LICENSE "$STAGE/"
-cp helper/twitch_redemptions.py helper/README.md "$STAGE/helper/"
+# Builds one archive. The .nrm is the same in every one; only the native library
+# and the install instructions differ, since the runtime will not load the mod
+# without a library matching the player's platform.
+package() {
+    local platform="$1" lib="$2" libdir="$3"
+    local name="twitch-chat-integration-v${VERSION}-${platform}"
+    local stage="dist/$name"
+
+    echo "==> staging $name"
+    rm -rf "$stage" "dist/$name.zip"
+    mkdir -p "$stage/helper"
+
+    cp "build/twitch_chat_integration.nrm" "$stage/"
+    cp "$libdir/$lib" "$stage/"
+    cp README.md LICENSE "$stage/"
+    cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
+
+    write_install_note "$stage" "$platform" "$lib"
+
+    (cd dist && zip -qr "$name.zip" "$name")
+    rm -rf "$stage"
+
+    echo "dist/$name.zip  ($(du -h "dist/$name.zip" | cut -f1))"
+    echo "  sha256  $(sha256sum "dist/$name.zip" | cut -d' ' -f1)"
+}
 
 # A short note for people who unzip it and want to know what to do, without
 # reading the whole README first.
-cat > "$STAGE/INSTALL.txt" <<EOF
+write_install_note() {
+    local stage="$1" platform="$2" lib="$3"
+    cat > "$stage/INSTALL.txt" <<EOF
 Twitch Chat Integration v${VERSION} for Banjo-Kazooie: Recompiled
-${PLATFORM}
+${platform}
 
 1. Copy these two files into your mods folder:
 
        twitch_chat_integration.nrm
-       ${LIB}
+       ${lib}
 
    Linux:   ~/.config/BanjoRecompiled/mods
    Windows: %APPDATA%\\BanjoRecompiled\\mods
@@ -78,25 +108,24 @@ read messages aloud, someone in chat types:
 See README.md for every character name and every option, and helper/README.md
 if you want channel point redemptions.
 EOF
-
-(cd dist && zip -qr "$NAME.zip" "$NAME")
-rm -rf "$STAGE"
-
-SIZE=$(du -h "dist/$NAME.zip" | cut -f1)
-SHA=$(sha256sum "dist/$NAME.zip" | cut -d' ' -f1)
+}
 
 echo
-echo "dist/$NAME.zip  ($SIZE)"
-echo "sha256  $SHA"
+package "$PLATFORM" "$LIB" "build/native"
+if [ "$WINDOWS" -eq 1 ]; then
+    package "windows-x86_64" "twitch_chat.dll" "build/native-windows"
+fi
 
 if [ "$PUBLISH" -eq 1 ]; then
     TAG="v$VERSION"
+    ARCHIVES=(dist/twitch-chat-integration-v${VERSION}-*.zip)
+
     if gh release view "$TAG" >/dev/null 2>&1; then
         echo "==> uploading to the existing $TAG release"
-        gh release upload "$TAG" "dist/$NAME.zip" --clobber
+        gh release upload "$TAG" "${ARCHIVES[@]}" --clobber
     else
         echo "==> creating release $TAG"
-        gh release create "$TAG" "dist/$NAME.zip" \
+        gh release create "$TAG" "${ARCHIVES[@]}" \
             --title "Twitch Chat Integration $TAG" \
             --notes-file RELEASE_NOTES.md
     fi
