@@ -70,7 +70,7 @@ package() {
 
     cp "build/twitch_chat_integration.nrm" "$stage/"
     cp "$libdir/$lib" "$stage/"
-    cp README.md LICENSE "$stage/"
+    cp README.md LICENSE NOTICE "$stage/"
     cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
 
     write_install_note "$stage" "$platform" "$lib"
@@ -132,7 +132,7 @@ package_thunderstore() {
     cp build/twitch_chat_integration.nrm "$stage/"
     cp build/native/twitch_chat.so "$stage/"
     cp build/native-windows/twitch_chat.dll "$stage/"
-    cp README.md LICENSE "$stage/"
+    cp README.md LICENSE NOTICE "$stage/"
     cp assets/thunderstore-icon.png "$stage/icon.png"
     cp helper/twitch_redemptions.py helper/README.md "$stage/helper/"
 

@@ -17,7 +17,10 @@ the screen. The connection is anonymous and read-only -- the mod never asks for 
 a Twitch account, password or OAuth token, and it cannot send messages.
 
 Requires the twitch_chat native library to sit next to this mod's .nrm file in \
-the mods folder."""
+the mods folder.
+
+Licensed CC BY-SA 4.0: share and adapt freely, with credit, keeping derivatives \
+under the same terms."""
 
 short_description = "Shows your Twitch chat on screen."
 

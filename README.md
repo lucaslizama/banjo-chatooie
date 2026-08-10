@@ -135,3 +135,14 @@ described above. Find the right one with `!say #<number>: test`.
 ## Building it yourself
 
 See `DEVELOPING.md`.
+
+## Licence
+
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+
+Use it, change it, share it, build on it. Two conditions: credit the original,
+and release anything you derive from it under the same licence, so it stays open
+for the next person.
+
+Banjo-Kazooie itself belongs to Nintendo and Rare. Nothing here contains any part
+of the game, and you need your own copy to play it.

@@ -64,6 +64,12 @@ The same thing can be done locally:
 ./release.sh --thunderstore         # one package for Thunderstore instead
 ```
 
+The project is CC BY-SA 4.0; `NOTICE` records that and the CC0 status of the
+vendored recomp headers and submodules.
+
+```
+```
+
 Release notes come from `RELEASE_NOTES.md`, so edit that before tagging.
 
 There is no macOS archive. Cross-compiling for macOS needs the Xcode SDK, which

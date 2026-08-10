@@ -1,0 +1,16 @@
+Twitch Chat Integration, a mod for Banjo-Kazooie: Recompiled
+Copyright (c) 2026 Lucas Lizama
+
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International
+(CC BY-SA 4.0). See LICENSE, or https://creativecommons.org/licenses/by-sa/4.0/
+
+You may share and adapt this work, including commercially, provided you give
+credit and license your derivative under the same terms.
+
+This licence covers only the code in this repository. Banjo-Kazooie and its
+assets belong to Nintendo and Rare; nothing here contains or distributes them,
+and a copy of the game is required separately.
+
+The recomp headers under include/, and the bk-decomp and BanjoRecompSyms
+submodules, are the work of their respective authors and are released under
+CC0 1.0, which places no conditions on their reuse here.
